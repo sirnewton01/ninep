@@ -326,10 +326,10 @@ func (*Ufs) Walk(req *srv.Req) {
 
 	nfid := req.Newfid.Aux.(*Fid)
 	wqids := make([]ninep.Qid, len(tc.Wname))
-	path := fid.path
+	fullPath := fid.path
 	i := 0
 	for ; i < len(tc.Wname); i++ {
-		p := path + "/" + tc.Wname[i]
+		p := path.Join(fullPath, tc.Wname[i])
 		st, err := os.Lstat(p)
 		if err != nil {
 			if i == 0 {
@@ -341,10 +341,10 @@ func (*Ufs) Walk(req *srv.Req) {
 		}
 
 		wqids[i] = *dir2Qid(st)
-		path = p
+		fullPath = p
 	}
 
-	nfid.path = path
+	nfid.path = path.Clean(fullPath)
 	req.RespondRwalk(wqids[0:i])
 }
 
