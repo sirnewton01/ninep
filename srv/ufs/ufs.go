@@ -121,7 +121,7 @@ func dir2Qid(d os.FileInfo) *ninep.Qid {
 	stat := sysif.(*syscall.Stat_t)
 
 	qid.Path = stat.Ino
-	qid.Version = uint32(d.ModTime().UnixNano() / 1000000)
+	qid.Version = 0 // Can't do this! It breaks .. on clients. uint32(d.ModTime().UnixNano() / 1000000)
 	qid.Type = dir2QidType(d)
 
 	return &qid
