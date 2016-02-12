@@ -4,7 +4,7 @@
 
 package clnt
 
-import "github.com/lionkov/ninep"
+import "github.com/rminnich/ninep"
 
 type Tag struct {
 	clnt     *Clnt

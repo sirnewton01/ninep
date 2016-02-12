@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/lionkov/ninep/clnt"
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/srv/nullfs"
+	"github.com/rminnich/ninep/clnt"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/srv/nullfs"
 )
 
 var (

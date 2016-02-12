@@ -5,7 +5,7 @@
 package clnt
 
 import (
-	"github.com/lionkov/ninep"
+	"github.com/rminnich/ninep"
 )
 
 var Eisdir = &ninep.Error{"file is a directory", ninep.EIO}

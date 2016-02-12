@@ -4,8 +4,8 @@ package main
 
 import (
 	"bufio"
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/clnt"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/clnt"
 	"flag"
 	"fmt"
 	"io"

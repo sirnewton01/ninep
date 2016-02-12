@@ -4,7 +4,7 @@
 
 package clnt
 
-import "github.com/lionkov/ninep"
+import "github.com/rminnich/ninep"
 
 // Removes the file associated with the Fid. Returns nil if the
 // operation is successful.

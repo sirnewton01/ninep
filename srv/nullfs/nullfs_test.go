@@ -10,8 +10,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/clnt"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/clnt"
 )
 
 // It's recommended not to have a helper. But this is so much boiler plate.

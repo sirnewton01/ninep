@@ -19,8 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/srv"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/srv"
 )
 
 type Fid struct {

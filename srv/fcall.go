@@ -8,7 +8,7 @@ import (
 	"log"
 	"sync/atomic"
 
-	"github.com/lionkov/ninep"
+	"github.com/rminnich/ninep"
 )
 
 func (srv *Srv) version(req *Req) {

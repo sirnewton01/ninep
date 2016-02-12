@@ -4,7 +4,7 @@
 
 package clnt
 
-import "github.com/lionkov/ninep"
+import "github.com/rminnich/ninep"
 
 // Clunks a fid. Returns nil if successful.
 func (clnt *Clnt) Clunk(fid *Fid) (err error) {

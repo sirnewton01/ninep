@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/lionkov/ninep/srv/nullfs"
+	"github.com/rminnich/ninep/srv/nullfs"
 )
 
 var (

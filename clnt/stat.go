@@ -4,7 +4,7 @@
 
 package clnt
 
-import "github.com/lionkov/ninep"
+import "github.com/rminnich/ninep"
 
 // Returns the metadata for the file associated with the Fid, or an Error.
 func (clnt *Clnt) Stat(fid *Fid) (*ninep.Dir, error) {

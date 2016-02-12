@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/lionkov/ninep"
+	"github.com/rminnich/ninep"
 )
 
 var mux sync.RWMutex

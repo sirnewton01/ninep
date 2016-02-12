@@ -11,7 +11,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/lionkov/ninep"
+	"github.com/rminnich/ninep"
 )
 
 func (clnt *Clnt) ServeHTTP(c http.ResponseWriter, r *http.Request) {

@@ -8,7 +8,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/lionkov/ninep/srv/ufs"
+	"github.com/rminnich/ninep/srv/ufs"
 )
 
 var (

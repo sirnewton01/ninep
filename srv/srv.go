@@ -7,7 +7,7 @@
 package srv
 
 import (
-	"github.com/lionkov/ninep"
+	"github.com/rminnich/ninep"
 	"net"
 	"sync"
 	"sync/atomic"

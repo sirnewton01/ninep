@@ -5,7 +5,7 @@
 package srv
 
 import "fmt"
-import "github.com/lionkov/ninep"
+import "github.com/rminnich/ninep"
 
 // Respond to the request with Rerror message
 func (req *Req) RespondError(err interface{}) {

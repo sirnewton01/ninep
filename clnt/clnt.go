@@ -8,7 +8,7 @@ package clnt
 
 import (
 	"fmt"
-	"github.com/lionkov/ninep"
+	"github.com/rminnich/ninep"
 	"log"
 	"net"
 	"sync"

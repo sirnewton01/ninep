@@ -5,8 +5,8 @@
 package nullfs
 
 import (
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/srv"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/srv"
 )
 
 const (

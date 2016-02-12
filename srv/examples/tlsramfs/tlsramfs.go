@@ -7,8 +7,8 @@
 package main
 
 import (
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/srv"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/srv"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/clnt"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/clnt"
 	"flag"
 	"log"
 	"os"

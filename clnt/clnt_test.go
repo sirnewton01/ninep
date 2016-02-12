@@ -15,9 +15,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/lionkov/ninep"
-	"github.com/lionkov/ninep/srv/nullfs"
-	"github.com/lionkov/ninep/srv/ufs"
+	"github.com/rminnich/ninep"
+	"github.com/rminnich/ninep/srv/nullfs"
+	"github.com/rminnich/ninep/srv/ufs"
 )
 
 var debug = flag.Int("debug", 0, "print debug messages")
