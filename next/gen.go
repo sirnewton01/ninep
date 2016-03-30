@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 //	"next9p"
 	"reflect"
 )
@@ -15,39 +16,61 @@ import (
 // genMsgCoder tries to generate an encoder and a decoder for a given message type.
 func genMsgRPC(v interface{}) (string, string, error) {
 	var e, d string
+	var inBWrite bool
 	n := fmt.Sprintf("%T", v)
-	n = n[6:]
-	e = fmt.Sprintf("func Marshal%v(", n)
+	p := n[5:]
+	n = n[5:len(n)-3]
+	e = fmt.Sprintf("func Marshal%v(b io.Writer", n)
 	d = fmt.Sprintf("func Unmarshall%v([]byte) (", n)
 	eParms := ""
-	dRet := ""
-	
+	dRet := p + ", error) {\n"
+	eCode := ""
+	dCode := ""
+
+	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
+	// The tag type, and the tag itself.
+	eCode += "\tb.Write([]byte{0,0,0,0})\n\tb.Write([]byte{uint8("+n+"),\n"
+	inBWrite = true
+
 	t := reflect.TypeOf(v)
 	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if i > 0 {
-			eParms += ", "
-			dRet += ", "
+		if ! inBWrite {
+			eCode += "\tb.Write([]byte{"
+			inBWrite = true
 		}
-	fmt.Printf("%v %v\n", f.Name, f.Type.Kind)
-		eParms += fmt.Sprintf("_%d %T", i, f)
-		dRet += fmt.Sprintf("%T", f)
+		f := t.Field(i)
+		eParms += ", "
+		n := f.Name
+		eParms += fmt.Sprintf("%v %v", n, f.Type.Kind())
 		switch f.Type.Kind() {
-		case reflect.Uint16:
-			fmt.Printf("uint16 ...\n")
 		case reflect.Uint32:
-			fmt.Printf("uint32 ...\n")
+			eCode += fmt.Sprintf("\tuint8(%v>>24),uint8(%v>>16),", n, n)
+			fallthrough
+		case reflect.Uint16:
+			eCode += fmt.Sprintf("\tuint8(%v>>8),uint8(%v),", n, n)
 		case reflect.String:
-			fmt.Printf("string ..\n")
+			eCode += fmt.Sprintf("\tuint8(len(%v)>>8),uint8(%v),", n, n)
+			if inBWrite {
+				eCode += "}\n"
+				inBWrite = false
+			}
+			eCode += fmt.Sprintf("\tb.Write([]byte(%v))\n", n)
 		default:
 			return "", "", fmt.Errorf("Can't encode %T.%v", v, f)
 		}
 
 	}
-	return e+eParms, d+dRet, nil
+	if inBWrite {
+		eCode += "\t})\n"
+	}
+	eCode += "\tl := b.Len()\n\tb.Bytes()[0:3] = []byte{uint8(l>>24), uint8(l>>16), uint8(l>>8), uint8(l)}[:]\n"
+	return e+eParms+") {\n"+eCode+"}\n", d+ dRet+dCode+"\n}\n" , nil
 }
 
 func main() {
 	e, d, err := genMsgRPC(TversionPkt{})
-	fmt.Printf("%v \n %v \n %v\n ", e, d, err)
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	fmt.Printf("package main\n\nimport \"io\"\n%v \n %v \n", e, d)
 }
