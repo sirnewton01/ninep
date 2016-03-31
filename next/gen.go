@@ -15,22 +15,20 @@ import (
 )
 
 // genMsgCoder tries to generate an encoder and a decoder for a given message type.
-func genMsgRPC(v interface{}) (string, string, error) {
+func genMsgRPC(v interface{}, packet, msg string) (string, string, error) {
 	var e, d string
 	var inBWrite bool
-	n := fmt.Sprintf("%T", v)
-	p := n[6:]
-	n = n[6 : len(n)-3]
-	e = fmt.Sprintf("func Marshal%v(b bytes.Buffer", n)
-	d = fmt.Sprintf("func Unmarshall%v(d[]byte) (*", n)
+	//packageType := fmt.Sprintf("%T", v)
+	e = fmt.Sprintf("func Marshal%v(b bytes.Buffer", packet)
+	d = fmt.Sprintf("func Unmarshall%v(d[]byte) (*", packet)
 	eParms := ""
-	dRet := p + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n", p)
+	dRet := packet + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n", packet)
 	eCode := ""
 	dCode := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
-	eCode += "\tb.Write([]byte{0,0,0,0})\n\tb.Write([]byte{uint8(" + n + "),\n"
+	eCode += "\tb.Write([]byte{0,0,0,0})\n\tb.Write([]byte{uint8(" + msg + "),\n"
 	inBWrite = true
 
 	t := reflect.TypeOf(v)
@@ -77,7 +75,7 @@ func genMsgRPC(v interface{}) (string, string, error) {
 }
 
 func main() {
-	e, d, err := genMsgRPC(next.TversionPkt{})
+	e, d, err := genMsgRPC(next.TversionPkt{}, "TversionPkt", "Tversion")
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
