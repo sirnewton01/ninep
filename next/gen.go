@@ -4,12 +4,11 @@
 
 // +build ignore
 //
-package main
+package next
 
 import (
 	"fmt"
 	"log"
-	//	"next9p"
 	"reflect"
 )
 
@@ -80,5 +79,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	fmt.Printf("package main\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n%v \n %v \n", e, d)
+	fmt.Printf("package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n%v \n %v \n", e, d)
 }
