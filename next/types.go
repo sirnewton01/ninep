@@ -156,3 +156,9 @@ type TversionPkt struct {
 	Msize   uint32
 	Version string
 }
+
+type RversionPkt struct {
+	Tag     uint16
+	Msize   uint32
+	Version string
+}
