@@ -148,6 +148,9 @@ type Dir struct {
 	Muid   string // name of the last user that modified the file
 }
 
+// N.B. In all packets, the wire order is assumed to be the order in which you
+// put struct members.
+
 type TversionPkt struct {
 	Tag uint16
 	Msize uint32
