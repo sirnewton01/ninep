@@ -9,7 +9,7 @@ package main
 import (
 	"fmt"
 	"log"
-//	"next9p"
+	//	"next9p"
 	"reflect"
 )
 
@@ -19,22 +19,22 @@ func genMsgRPC(v interface{}) (string, string, error) {
 	var inBWrite bool
 	n := fmt.Sprintf("%T", v)
 	p := n[5:]
-	n = n[5:len(n)-3]
+	n = n[5 : len(n)-3]
 	e = fmt.Sprintf("func Marshal%v(b bytes.Buffer", n)
 	d = fmt.Sprintf("func Unmarshall%v(d[]byte) (*", n)
 	eParms := ""
-	dRet := p + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n",p)
+	dRet := p + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n", p)
 	eCode := ""
 	dCode := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
-	eCode += "\tb.Write([]byte{0,0,0,0})\n\tb.Write([]byte{uint8("+n+"),\n"
+	eCode += "\tb.Write([]byte{0,0,0,0})\n\tb.Write([]byte{uint8(" + n + "),\n"
 	inBWrite = true
 
 	t := reflect.TypeOf(v)
 	for i := 0; i < t.NumField(); i++ {
-		if ! inBWrite {
+		if !inBWrite {
 			eCode += "\tb.Write([]byte{"
 			inBWrite = true
 		}
@@ -72,7 +72,7 @@ func genMsgRPC(v interface{}) (string, string, error) {
 		eCode += "\t})\n"
 	}
 	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l>>24), uint8(l>>16), uint8(l>>8), uint8(l)})\n"
-	return e+eParms+") {\n"+eCode+"}\n", d+ dRet+dCode+"\n\treturn p, nil\n}\n" , nil
+	return e + eParms + ") {\n" + eCode + "}\n", d + dRet + dCode + "\n\treturn p, nil\n}\n", nil
 }
 
 func main() {

@@ -39,8 +39,8 @@ const (
 
 const (
 	MSIZE   = 2*1048576 + IOHDRSZ // default message size (1048576+IOHdrSz)
-	IOHDRSZ = 24                // the non-data size of the Twrite messages
-	PORT    = 564               // default port for 9P file servers
+	IOHDRSZ = 24                  // the non-data size of the Twrite messages
+	PORT    = 564                 // default port for 9P file servers
 )
 
 // Qid types
@@ -116,7 +116,7 @@ type (
 	Count      int32
 	Perm       int32
 	Offset     uint64
-	Data	[]byte
+	Data       []byte
 )
 
 // Error represents a 9P2000 (and 9P2000.u) error
@@ -152,7 +152,7 @@ type Dir struct {
 // put struct members.
 
 type TversionPkt struct {
-	Tag uint16
-	Msize uint32
+	Tag     uint16
+	Msize   uint32
 	Version string
 }
