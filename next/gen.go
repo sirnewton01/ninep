@@ -20,7 +20,7 @@ func genMsgRPC(v interface{}) (string, string, error) {
 	n := fmt.Sprintf("%T", v)
 	p := n[5:]
 	n = n[5:len(n)-3]
-	e = fmt.Sprintf("func Marshal%v(b io.Writer", n)
+	e = fmt.Sprintf("func Marshal%v(b bytes.Buffer", n)
 	d = fmt.Sprintf("func Unmarshall%v([]byte) (", n)
 	eParms := ""
 	dRet := p + ", error) {\n"
@@ -47,11 +47,11 @@ func genMsgRPC(v interface{}) (string, string, error) {
 			eCode += fmt.Sprintf("\tuint8(%v>>24),uint8(%v>>16),", n, n)
 			fallthrough
 		case reflect.Uint16:
-			eCode += fmt.Sprintf("\tuint8(%v>>8),uint8(%v),", n, n)
+			eCode += fmt.Sprintf("\tuint8(%v>>8),uint8(%v),\n", n, n)
 		case reflect.String:
-			eCode += fmt.Sprintf("\tuint8(len(%v)>>8),uint8(%v),", n, n)
+			eCode += fmt.Sprintf("\tuint8(len(%v)>>8),uint8(len(%v)),\n", n, n)
 			if inBWrite {
-				eCode += "}\n"
+				eCode += "\t})\n"
 				inBWrite = false
 			}
 			eCode += fmt.Sprintf("\tb.Write([]byte(%v))\n", n)
@@ -63,7 +63,7 @@ func genMsgRPC(v interface{}) (string, string, error) {
 	if inBWrite {
 		eCode += "\t})\n"
 	}
-	eCode += "\tl := b.Len()\n\tb.Bytes()[0:3] = []byte{uint8(l>>24), uint8(l>>16), uint8(l>>8), uint8(l)}[:]\n"
+	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l>>24), uint8(l>>16), uint8(l>>8), uint8(l)})\n"
 	return e+eParms+") {\n"+eCode+"}\n", d+ dRet+dCode+"\n}\n" , nil
 }
 
@@ -72,5 +72,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	fmt.Printf("package main\n\nimport \"io\"\n%v \n %v \n", e, d)
+	fmt.Printf("package main\n\nimport \"bytes\"\n%v \n %v \n", e, d)
 }
