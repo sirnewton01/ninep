@@ -3,12 +3,14 @@
 // license that can be found in the LICENSE file.
 
 // +build ignore
-//
-package next
+
+package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"github.com/rminnich/ninep/next"
 	"reflect"
 )
 
@@ -17,8 +19,8 @@ func genMsgRPC(v interface{}) (string, string, error) {
 	var e, d string
 	var inBWrite bool
 	n := fmt.Sprintf("%T", v)
-	p := n[5:]
-	n = n[5 : len(n)-3]
+	p := n[6:]
+	n = n[6 : len(n)-3]
 	e = fmt.Sprintf("func Marshal%v(b bytes.Buffer", n)
 	d = fmt.Sprintf("func Unmarshall%v(d[]byte) (*", n)
 	eParms := ""
@@ -75,9 +77,12 @@ func genMsgRPC(v interface{}) (string, string, error) {
 }
 
 func main() {
-	e, d, err := genMsgRPC(TversionPkt{})
+	e, d, err := genMsgRPC(next.TversionPkt{})
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	fmt.Printf("package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n%v \n %v \n", e, d)
+	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n" + e + "\n" + d
+	if err := ioutil.WriteFile("genout.go", []byte(out), 0600); err != nil {
+		log.Fatalf("%v", err)
+	}
 }
