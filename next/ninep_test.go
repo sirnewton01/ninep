@@ -30,7 +30,6 @@ func testUnpackDir(t *testing.T) {
 	}
 }
 */
-//{[]byte{{27,0,0,0,104,255,255,0,0,0,0,255,255,255,255,4,0,114,111,111,116,4,0,47,116,109,112,},
 func TestEncode(t *testing.T) {
 	// The traces used in this array came from running 9p servers and clients.
 	// Except for flush, which we made up.
@@ -163,4 +162,35 @@ func TestEncode(t *testing.T) {
 		}
 	}
 
+}
+
+/*
+func TestDecode(t *testing.T) {
+	var tests = []struct {
+		n string
+		b []byte
+		f func(b *bytes.Buffer) error
+	}{
+		{
+			"TVersion test with 8192 byte msize and 9P2000",
+			[]byte{19, 0, 0, 0, 100, 255, 255, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
+			func (b *bytes.Buffer){ MarshalTversionPkt(b, NOTAG, 8192, "9P2000")},
+		},
+
+	for _, v := range tests {
+		var b bytes.Buffer
+		v.f(&b)
+		if !reflect.DeepEqual(v.b, b.Bytes()) {
+			t.Errorf("Mismatch on %v: Got %v[%v], want %v[%v]", v.n, b.Bytes(), len(b.Bytes()), v.b, len(v.b))
+		}
+	}
+
+}
+*/
+
+func TestTags(t *testing.T) {
+	_ = GetTag()
+	if len(tags) != 1<<16-1 {
+		t.Errorf("Got one tag, len(tags) is %d, want %d", len(tags), 1<<16-1)
+	}
 }

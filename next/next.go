@@ -5,3 +5,25 @@
 
 package next
 
+import (
+	"runtime"
+)
+
+var (
+	tags chan Tag
+)
+
+func init() {
+	tags = make(chan Tag, 1<<16)
+	for i := 0; i < 1 << 16; i++ {
+		tags <- Tag(i)
+	}
+}
+
+func GetTag() Tag {
+	t := <- tags
+	runtime.SetFinalizer(&t, func (t *Tag) {
+		tags <- *t
+	})
+	return t
+}
