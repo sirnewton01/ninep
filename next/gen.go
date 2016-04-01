@@ -14,12 +14,24 @@ import (
 	"reflect"
 )
 
+
+var (
+	packages = []struct {
+		p interface{}
+		n string
+		m string
+		}  {
+		{next.TversionPkt{}, "TversionPkt", "Tversion"},
+		{next.RversionPkt{}, "RversionPkt", "Rversion"},
+	}
+)
+
 // genMsgCoder tries to generate an encoder and a decoder for a given message type.
 func genMsgRPC(v interface{}, packet, msg string) (string, string, error) {
 	var e, d string
 	var inBWrite bool
 	//packageType := fmt.Sprintf("%T", v)
-	e = fmt.Sprintf("func Marshal%v(b bytes.Buffer", packet)
+	e = fmt.Sprintf("func Marshal%v(b *bytes.Buffer", packet)
 	d = fmt.Sprintf("func Unmarshall%v(d[]byte) (*", packet)
 	eParms := ""
 	dRet := packet + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n", packet)
@@ -43,16 +55,16 @@ func genMsgRPC(v interface{}, packet, msg string) (string, string, error) {
 		eParms += fmt.Sprintf("%v %v", n, f.Type.Kind())
 		switch f.Type.Kind() {
 		case reflect.Uint32:
-			eCode += fmt.Sprintf("\tuint8(%v>>24),uint8(%v>>16),", n, n)
-			eCode += fmt.Sprintf("\tuint8(%v>>8),uint8(%v),\n", n, n)
+			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", n, n)
+			eCode += fmt.Sprintf("\tuint8(%v>>16),uint8(%v>>24),\n", n, n)
 			dCode += "\tif _, err := b.Read(u32[:]); err != nil {\n\t\treturn nil, fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\t}\n"
 			dCode += fmt.Sprintf("\tp.%v = uint32(u32[0])<<24|uint32(u32[1])<<16|uint32(u32[2])<<8|uint32(u32[3])\n", n)
 		case reflect.Uint16:
-			eCode += fmt.Sprintf("\tuint8(%v>>8),uint8(%v),\n", n, n)
+			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", n, n)
 			dCode += "\tif _, err := b.Read(u16[:]); err != nil {\n\t\treturn nil, fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\t}\n"
 			dCode += fmt.Sprintf("\tp.%v = uint16(u16[0])<<8|uint16(u16[1])\n", n)
 		case reflect.String:
-			eCode += fmt.Sprintf("\tuint8(len(%v)>>8),uint8(len(%v)),\n", n, n)
+			eCode += fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n)
 			if inBWrite {
 				eCode += "\t})\n"
 				inBWrite = false
@@ -70,16 +82,21 @@ func genMsgRPC(v interface{}, packet, msg string) (string, string, error) {
 	if inBWrite {
 		eCode += "\t})\n"
 	}
-	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l>>24), uint8(l>>16), uint8(l>>8), uint8(l)})\n"
+	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n"
 	return e + eParms + ") {\n" + eCode + "}\n", d + dRet + dCode + "\n\treturn p, nil\n}\n", nil
 }
 
 func main() {
-	e, d, err := genMsgRPC(next.TversionPkt{}, "TversionPkt", "Tversion")
-	if err != nil {
-		log.Fatalf("%v", err)
+	var enc, dec string
+	for _, p := range packages  {
+		e, d, err := genMsgRPC(p.p, p.n, p.m)
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		enc += e
+		dec += d
 	}
-	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n" + e + "\n" + d
+	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n" + enc + "\n" + dec
 	if err := ioutil.WriteFile("genout.go", []byte(out), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}
