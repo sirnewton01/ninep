@@ -7,10 +7,12 @@ package next
 
 import (
 	"runtime"
+	"sync/atomic"
 )
 
 var (
 	tags chan Tag
+	fid uint64
 )
 
 func init() {
@@ -20,10 +22,18 @@ func init() {
 	}
 }
 
+// GetTag gets a tag to be used to identify a message.
 func GetTag() Tag {
 	t := <- tags
 	runtime.SetFinalizer(&t, func (t *Tag) {
 		tags <- *t
 	})
 	return t
+}
+
+// GetFID gets a fid to be used to identify a resource for a 9p client.
+// For a given lifetime of a 9p client, FIDS are unique (i.e. not reused as in
+// many 9p client libraries).
+func GetFID() FID {
+	return FID(atomic.AddUint64(&fid, 1))
 }

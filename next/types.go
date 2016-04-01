@@ -146,6 +146,7 @@ type Dir struct {
 	Uid    string // owner name
 	Gid    string // group name
 	Muid   string // name of the last user that modified the file
+	FID uint64
 }
 
 // N.B. In all packets, the wire order is assumed to be the order in which you
