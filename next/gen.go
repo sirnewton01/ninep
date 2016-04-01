@@ -31,7 +31,7 @@ func genMsgRPC(v interface{}, packet, msg string) (string, string, error) {
 	var e, d string
 	var inBWrite bool
 	//packageType := fmt.Sprintf("%T", v)
-	e = fmt.Sprintf("func Marshal%v(b *bytes.Buffer", packet)
+	e = fmt.Sprintf("func Marshal%v(b *bytes.Buffer, t Tag", packet)
 	d = fmt.Sprintf("func Unmarshall%v(d[]byte) (*", packet)
 	eParms := ""
 	dRet := packet + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n", packet)
@@ -40,8 +40,8 @@ func genMsgRPC(v interface{}, packet, msg string) (string, string, error) {
 
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
-	eCode += "\tb.Write([]byte{0,0,0,0})\n\tb.Write([]byte{uint8(" + msg + "),\n"
 	inBWrite = true
+	eCode += "\tb.Write([]byte{0,0,0,0, uint8(" + msg + "), uint8(t), uint8(t>>8),\n"
 
 	t := reflect.TypeOf(v)
 	for i := 0; i < t.NumField(); i++ {

@@ -4,6 +4,10 @@
 
 package next
 
+import (
+	"io"
+)
+
 // 9P2000 message types
 const (
 	Tversion MType = 100 + iota
@@ -41,9 +45,10 @@ const (
 	MSIZE   = 2*1048576 + IOHDRSZ // default message size (1048576+IOHdrSz)
 	IOHDRSZ = 24                  // the non-data size of the Twrite messages
 	PORT    = 564                 // default port for 9P file servers
+	NumFID = 1 << 16
 )
 
-// Qid types
+// QID types
 const (
 	QTDIR     = 0x80 // directories
 	QTAPPEND  = 0x40 // append only files
@@ -90,9 +95,8 @@ const (
 )
 
 const (
-	NOTAG uint16 = 0xFFFF     // no tag specified
-	NOFID uint32 = 0xFFFFFFFF // no fid specified
-	NOUID uint32 = 0xFFFFFFFF // no uid specified
+	NOTAG Tag = 0xFFFF     // no tag specified
+	NOFID FID = 0xFFFFFFFF // no fid specified
 )
 
 // Error values
@@ -126,7 +130,7 @@ type Error struct {
 }
 
 // File identifier
-type Qid struct {
+type QID struct {
 	Type    uint8  // type of the file (high 8 bits of the mode)
 	Version uint32 // version number for the path
 	Path    uint64 // server's unique identification of the file
@@ -137,15 +141,15 @@ type Dir struct {
 	Size   uint16 // size-2 of the Dir on the wire
 	Type   uint16
 	Dev    uint32
-	Qid           // file's Qid
+	QID           // file's QID
 	Mode   uint32 // permissions and flags
 	Atime  uint32 // last access time in seconds
 	Mtime  uint32 // last modified time in seconds
 	Length uint64 // file length in bytes
 	Name   string // file name
-	Uid    string // owner name
-	Gid    string // group name
-	Muid   string // name of the last user that modified the file
+	User    string // owner name
+	Group    string // group name
+	ModUser   string // name of the last user that modified the file
 	FID uint64
 }
 
@@ -153,13 +157,23 @@ type Dir struct {
 // put struct members.
 
 type TversionPkt struct {
-	Tag     uint16
 	Msize   uint32
 	Version string
 }
 
 type RversionPkt struct {
-	Tag     uint16
 	Msize   uint32
 	Version string
 }
+
+type RPC struct {
+	IO chan []byte
+}
+
+type Client struct {
+	Tags chan Tag
+	FID FID
+	RPC [NumFID] RPC
+	IO io.ReadWriter
+}
+
