@@ -41,9 +41,14 @@ func TestEncode(t *testing.T) {
 		f func(b *bytes.Buffer)
 	}{
 		{
-			"Version test with 8192 byte msize and 9P2000",
+			"TVersion test with 8192 byte msize and 9P2000",
 			[]byte{19, 0, 0, 0, 100, 255, 255, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
 			func (b *bytes.Buffer){ MarshalTversionPkt(b, NOTAG, 8192, "9P2000")},
+		},
+		{
+			"RVersion test with 8192 byte msize and 9P2000",
+			[]byte{19, 0, 0, 0, 101, 255, 255, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
+			func (b *bytes.Buffer){ MarshalRversionPkt(b, NOTAG, 8192, "9P2000")},
 		},
 /*
 		{
