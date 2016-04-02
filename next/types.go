@@ -97,6 +97,7 @@ const (
 const (
 	NOTAG Tag = 0xFFFF     // no tag specified
 	NOFID FID = 0xFFFFFFFF // no fid specified
+	NumTags   = 1 << 16
 )
 
 // Error values
@@ -167,13 +168,18 @@ type RversionPkt struct {
 }
 
 type RPC struct {
-	IO chan []byte
+	b[]byte
+	Reply chan []byte
 }
 
 type Client struct {
 	Tags chan Tag
 	FID FID
-	RPC [NumFID] RPC
-	IO io.ReadWriter
+	RPC []*RPC
+	Server io.ReadWriteCloser
+	FromClient chan *RPC
+	FromServer chan []byte
+	Msize uint32
+	Dead bool
 }
 
