@@ -95,9 +95,8 @@ return the type you want.
 func genMsgRPC(v interface{}, msg string) (e, d, call string, err error) {
 	var inBWrite bool = true
 	packet := msg + "Pkt"
-	decoderParms := "b []byte"
 	var vars string
-	mvars := "b"
+	mvars := ""
 	code := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
@@ -113,7 +112,7 @@ func genMsgRPC(v interface{}, msg string) (e, d, call string, err error) {
 		f := t.Field(i)
 		n := f.Name
 		vars += fmt.Sprintf(", %v %v", n, f.Type.Kind())
-		mvars += fmt.Sprintf(", %v", n)
+		mvars += fmt.Sprintf("b, %v", n)
 		switch f.Type.Kind() {
 		case reflect.Uint32:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", n, n)
@@ -134,7 +133,7 @@ func genMsgRPC(v interface{}, msg string) (e, d, call string, err error) {
 			dCode += "\tif _, err := b.Read(u16[:]); err != nil {\n\t\treturn nil, fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\t}\n"
 			dCode += fmt.Sprintf("\tl = int(u16[0])<<8|int(u16[1])\n")
 			dCode += "\tif b.Len() < l  {\n\t\treturn nil, fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\t}\n"
-			dCode += fmt.Sprintf("\tp.%v = b.String()\n", n)
+			dCode += fmt.Sprintf("\t%v = b.String()\n", n)
 		default:
 			return "", "", "", fmt.Errorf("Can't encode %T.%v", v, f)
 		}
@@ -142,16 +141,17 @@ func genMsgRPC(v interface{}, msg string) (e, d, call string, err error) {
 	}
 
 	enc := fmt.Sprintf("func Marshall%v (b *bytes.Buffer%v) {\n%v\n\treturn}\n", packet, vars, eCode)
+	dec := fmt.Sprintf("func Unmarshall%v (b []byte) (%v, error) {\n%v\n\treturn\n}\n", packet, vars, dCode)
 /*
 	dRet := packet + fmt.Sprintf(", error) {\n\tvar p *%v\n\tb := bytes.NewBuffer(d)\n", packet)
 	if inBWrite {
 		eCode += "\t})\n"
 	}
 	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n"
-	return e + eParms + ") {\n" + eCode + "}\n", d + dRet + dCode + "\n\treturn p, nil\n}\n", nil
+	return e + eParms + ") {\n" + eCode + "}\n", d + mvars + dCode + "\n\treturn p, nil\n}\n", nil
  */
 	return enc + "\n=====================\n" , 
-	decoderParms + dCode  + "\n=====================\n" , 
+	dec +  "\n=====================\n" , 
 	mvars  + code  + "\n=====================\n" , nil
 }
 
