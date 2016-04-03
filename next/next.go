@@ -17,20 +17,20 @@ type Opt func(...interface{}) error
 
 var (
 	tags chan Tag
-	fid uint64
+	fid  uint64
 )
 
 func init() {
 	tags = make(chan Tag, 1<<16)
-	for i := 0; i < 1 << 16; i++ {
+	for i := 0; i < 1<<16; i++ {
 		tags <- Tag(i)
 	}
 }
 
 // GetTag gets a tag to be used to identify a message.
 func GetTag() Tag {
-	t := <- tags
-	runtime.SetFinalizer(&t, func (t *Tag) {
+	t := <-tags
+	runtime.SetFinalizer(&t, func(t *Tag) {
 		tags <- *t
 	})
 	return t
@@ -45,7 +45,7 @@ func GetFID() FID {
 
 func (c *Client) readServerPackets() {
 	defer c.Server.Close()
-	for ! c.Dead {
+	for !c.Dead {
 		l := make([]byte, 64)
 		if n, err := c.Server.Read(l); err != nil || n < 7 {
 			log.Printf("readServerPackets: short read: %v", err)
@@ -62,23 +62,23 @@ func (c *Client) readServerPackets() {
 		}
 		c.FromServer <- b.Bytes()
 	}
-	
+
 }
 
 func (c *Client) IO() {
 	for {
 		select {
-		case r := <- c.FromClient:
-			t := <- tags
+		case r := <-c.FromClient:
+			t := <-tags
 			r.b[5] = uint8(t)
-			r.b[6] = uint8(t>>8)
+			r.b[6] = uint8(t >> 8)
 			c.RPC[int(t)] = r
 			if _, err := c.Server.Write(r.b); err != nil {
 				c.Dead = true
 				log.Printf("Write to server: %v", err)
 				return
 			}
-		case b := <- c.FromServer:
+		case b := <-c.FromServer:
 			t := b[5] + b[6]<<8
 			c.RPC[t].Reply <- b
 		}
@@ -88,8 +88,8 @@ func (c *Client) IO() {
 func NewClient(opts ...Opt) (*Client, error) {
 	var c = &Client{}
 
-	c.Tags = make(chan Tag, NumTags - 1)
-	for i := 0; i < int(NOTAG); i ++ {
+	c.Tags = make(chan Tag, NumTags-1)
+	for i := 0; i < int(NOTAG); i++ {
 		c.Tags <- Tag(i)
 	}
 	c.FID = 1

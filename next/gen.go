@@ -8,30 +8,29 @@ package main
 
 import (
 	"fmt"
+	"github.com/rminnich/ninep/next"
 	"io/ioutil"
 	"log"
-	"github.com/rminnich/ninep/next"
 	"reflect"
 )
-
 
 var (
 	packages = []struct {
 		p interface{}
 		n string
-		}  {
+	}{
 		{p: next.TversionPkt{}, n: "Tversion"},
 		{p: next.RversionPkt{}, n: "Rversion"},
 	}
 )
 
-// For a given message type, gen generates declarations, return values, lists of variables, and code. 
+// For a given message type, gen generates declarations, return values, lists of variables, and code.
 func gen(v interface{}, msg string) (eParms, eCode, dRet, dCode string, err error) {
 	comma := ""
 	var inBWrite bool = true
 	//packet := msg + "Pkt"
 	mvars := ""
-//	code := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
+	//	code := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
 	eCode = "\tb.Write([]byte{0,0,0,0, uint8(" + msg + "), 0, 0,\n"
@@ -79,6 +78,7 @@ func gen(v interface{}, msg string) (eParms, eCode, dRet, dCode string, err erro
 	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n"
 	return
 }
+
 // genMsgCoder tries to generate an encoder and a decoder for a given message type.
 func genMsgRPC(v interface{}, msg string) (e, d, call string, err error) {
 	packet := msg + "Pkt"
@@ -89,14 +89,14 @@ func genMsgRPC(v interface{}, msg string) (e, d, call string, err error) {
 
 	enc := fmt.Sprintf("func Marshal%v (b *bytes.Buffer%v) {\n%v\n\treturn\n}\n", packet, eParms, eCode)
 	dec := fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, err error) {\n%v\n\treturn\n}\n", packet, dRet, dCode)
-	return enc + "\n//=====================\n" , 
-	dec +  "\n//=====================\n" , 
-	/*mvars  + */call  +  "\n//=====================\n" , nil
+	return enc + "\n//=====================\n",
+		dec + "\n//=====================\n",
+		/*mvars  + */ call + "\n//=====================\n", nil
 }
 
 func main() {
 	var enc, dec, call string
-	for _, p := range packages  {
+	for _, p := range packages {
 		e, d, c, err := genMsgRPC(p.p, p.n)
 		if err != nil {
 			log.Fatalf("%v", err)

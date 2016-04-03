@@ -45,7 +45,7 @@ const (
 	MSIZE   = 2*1048576 + IOHDRSZ // default message size (1048576+IOHdrSz)
 	IOHDRSZ = 24                  // the non-data size of the Twrite messages
 	PORT    = 564                 // default port for 9P file servers
-	NumFID = 1 << 16
+	NumFID  = 1 << 16
 )
 
 // QID types
@@ -95,9 +95,9 @@ const (
 )
 
 const (
-	NOTAG Tag = 0xFFFF     // no tag specified
-	NOFID FID = 0xFFFFFFFF // no fid specified
-	NumTags   = 1 << 16
+	NOTAG   Tag = 0xFFFF     // no tag specified
+	NOFID   FID = 0xFFFFFFFF // no fid specified
+	NumTags     = 1 << 16
 )
 
 // Error values
@@ -139,19 +139,19 @@ type QID struct {
 
 // Dir describes a file
 type Dir struct {
-	Size   uint16 // size-2 of the Dir on the wire
-	Type   uint16
-	Dev    uint32
-	QID           // file's QID
-	Mode   uint32 // permissions and flags
-	Atime  uint32 // last access time in seconds
-	Mtime  uint32 // last modified time in seconds
-	Length uint64 // file length in bytes
-	Name   string // file name
+	Size    uint16 // size-2 of the Dir on the wire
+	Type    uint16
+	Dev     uint32
+	QID            // file's QID
+	Mode    uint32 // permissions and flags
+	Atime   uint32 // last access time in seconds
+	Mtime   uint32 // last modified time in seconds
+	Length  uint64 // file length in bytes
+	Name    string // file name
 	User    string // owner name
-	Group    string // group name
-	ModUser   string // name of the last user that modified the file
-	FID uint64
+	Group   string // group name
+	ModUser string // name of the last user that modified the file
+	FID     uint64
 }
 
 // N.B. In all packets, the wire order is assumed to be the order in which you
@@ -168,18 +168,17 @@ type RversionPkt struct {
 }
 
 type RPC struct {
-	b[]byte
+	b     []byte
 	Reply chan []byte
 }
 
 type Client struct {
-	Tags chan Tag
-	FID FID
-	RPC []*RPC
-	Server io.ReadWriteCloser
+	Tags       chan Tag
+	FID        FID
+	RPC        []*RPC
+	Server     io.ReadWriteCloser
 	FromClient chan *RPC
 	FromServer chan []byte
-	Msize uint32
-	Dead bool
+	Msize      uint32
+	Dead       bool
 }
-
