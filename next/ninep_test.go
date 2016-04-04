@@ -41,13 +41,13 @@ func TestEncode(t *testing.T) {
 	}{
 		{
 			"TVersion test with 8192 byte msize and 9P2000",
-			[]byte{19, 0, 0, 0, 100, 0, 0, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
-			func(b *bytes.Buffer) { MarshalTversionPkt(b, 8192, "9P2000") },
+			[]byte{19, 0, 0, 0, 100, 0x55, 0xaa, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
+			func(b *bytes.Buffer) { MarshalTversionPkt(b, Tag(0xaa55), 8192, "9P2000") },
 		},
 		{
 			"RVersion test with 8192 byte msize and 9P2000",
-			[]byte{19, 0, 0, 0, 101, 0, 0, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
-			func(b *bytes.Buffer) { MarshalRversionPkt(b, 8192, "9P2000") },
+			[]byte{19, 0, 0, 0, 101, 0xaa, 0x55, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
+			func(b *bytes.Buffer) { MarshalRversionPkt(b, Tag(0x55aa), 8192, "9P2000") },
 		},
 		/*
 			{
@@ -157,7 +157,7 @@ func TestEncode(t *testing.T) {
 		var b bytes.Buffer
 		v.f(&b)
 		if !reflect.DeepEqual(v.b, b.Bytes()) {
-			t.Errorf("Mismatch on %v: Got %v[%v], want %v[%v]", v.n, b.Bytes(), len(b.Bytes()), v.b, len(v.b))
+			t.Errorf("Mismatch on %v: Got\n%v[%v], want\n%v[%v]", v.n, b.Bytes(), len(b.Bytes()), v.b, len(v.b))
 		}
 	}
 
