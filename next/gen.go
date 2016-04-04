@@ -32,9 +32,9 @@ import (
 
 var (
 	packages = []struct {
-		c interface{}
+		c  interface{}
 		cn string
-		r interface{}
+		r  interface{}
 		rn string
 	}{
 		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
@@ -101,40 +101,47 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 	return
 }
 
-// genMsgCoder tries to generate an encoder and a decoder for a given message type.
-func genMsgRPC(v interface{}, msg string) (enc, dec, call string, err error) {
-	packet := msg + "Pkt"
-	eParms, eCode, eList, dRet, dCode, dList, err := gen(v, msg, msg[0:1])
+// genMsgCoder tries to generate an encoder and a decoder and caller for a given message pair.
+func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call string, err error) {
+	tpacket := tmsg + "Pkt"
+	eTParms, eTCode, eTList, dTRet, dTCode, dTList, err := gen(tv, tmsg, tmsg[0:1])
 	if err != nil {
 		return
 	}
 
-	enc = fmt.Sprintf("func Marshal%v (b *bytes.Buffer, t Tag%v) {\n%v\n\treturn\n}\n", packet, eParms, eCode)
-	dec = fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, err error) {\n%v\n\treturn\n}\n", packet, dRet, dCode)
+	rpacket := rmsg + "Pkt"
+	eRParms, eRCode, eRList, dRRet, dRCode, dRList, err := gen(rv, rmsg, rmsg[0:1])
+	if err != nil {
+		return
+	}
+	enc = fmt.Sprintf("func Marshal%v (b *bytes.Buffer, t Tag%v) {\n%v\n\treturn\n}\n", tpacket, eTParms, eTCode)
+	dec = fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, err error) {\n%v\n\treturn\n}\n", tpacket, dTRet, dTCode)
+	enc += fmt.Sprintf("func Marshal%v (b *bytes.Buffer, t Tag%v) {\n%v\n\treturn\n}\n", rpacket, eRParms, eRCode)
+	dec += fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, err error) {\n%v\n\treturn\n}\n", rpacket, dRRet, dRCode)
 	// The call code takes teh same paramaters as encode, and has the parameters of decode.
 	// We use named parameters so that on stuff like Read we can return the []b we were passed.
 	// I guess that's stupid, since we *could* just not return the []b, but OTOH this is more
 	// consistent?
 
-	callCode := fmt.Sprintf(`var b bytes.Buffer
+	callCode := fmt.Sprintf(`var b = bytes.Buffer{}
 t := <- c.Tags
 r := make (chan []byte)
-Marshal%vPkg(b, %v)
+Marshal%vPkt(&b, t, %v)
 c.FromClient <- &RPC{b: b.Bytes(), Reply: r}
-b = <- ret
-return UnmarshalR%vPkt(b)
-}`, msg, eParms, msg)
-	
-	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", packet, eParms[2:], dRet, callCode, eList, dList)
+return Unmarshal%vPkt(bytes.NewBuffer(<-r))
+}`, tmsg, eTList, rmsg)
+	fmt.Printf("// %v %v", dTList, eRList)
+	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", tpacket, eTParms[2:], dRRet, callCode, eTList, dRList)
 	return enc + "\n//=====================\n",
 		dec + "\n//=====================\n",
 		/*mvars  + */ call + "\n//=====================\n", nil
+
 }
 
 func main() {
 	var enc, dec, call string
 	for _, p := range packages {
-		e, d, c, err := genMsgRPC(p.p, p.n)
+		e, d, c, err := genMsgRPC(p.c, p.cn, p.r, p.rn)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
