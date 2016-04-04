@@ -32,11 +32,12 @@ import (
 
 var (
 	packages = []struct {
-		p interface{}
-		n string
+		c interface{}
+		cn string
+		r interface{}
+		rn string
 	}{
-		{p: next.TversionPkt{}, n: "Tversion"},
-		{p: next.RversionPkt{}, n: "Rversion"},
+		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 	}
 )
 
@@ -52,7 +53,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 	eCode = "\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
 	dCode = "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 	// Unmarshal will always return the tag in addition to everything else.
-	dRet = "t Tag"
+	dRet = ""
 
 	t := reflect.TypeOf(v)
 	for i := 0; i < t.NumField(); i++ {
@@ -65,7 +66,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 		Un := "U" + prefix + f.Name
 		eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
 		eList += comma + Mn
-		dRet += fmt.Sprintf(", %v %v", Un, f.Type.Kind())
+		dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
 		dList = comma + Un
 		mvars += fmt.Sprintf("b, %v", Mn)
 		switch f.Type.Kind() {
@@ -115,8 +116,16 @@ func genMsgRPC(v interface{}, msg string) (enc, dec, call string, err error) {
 	// I guess that's stupid, since we *could* just not return the []b, but OTOH this is more
 	// consistent?
 
-	callCode := ""
-	call = fmt.Sprintf("func Call%v (%v) (%v, err error) {\n%v\n\treturn\n} /*%v / %v */\n", packet, eParms[2:], dRet, callCode, eList, dList)
+	callCode := fmt.Sprintf(`var b bytes.Buffer
+t := <- c.Tags
+r := make (chan []byte)
+Marshal%vPkg(b, %v)
+c.FromClient <- &RPC{b: b.Bytes(), Reply: r}
+b = <- ret
+return UnmarshalR%vPkt(b)
+}`, msg, eParms, msg)
+	
+	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", packet, eParms[2:], dRet, callCode, eList, dList)
 	return enc + "\n//=====================\n",
 		dec + "\n//=====================\n",
 		/*mvars  + */ call + "\n//=====================\n", nil
