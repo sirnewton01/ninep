@@ -60,7 +60,7 @@ func (c *Client) readServerPackets() {
 			c.Dead = true
 			return
 		}
-		c.FromServer <- b.Bytes()
+		c.FromServer <- &RPCReply{b: b.Bytes()}
 	}
 
 }
@@ -78,9 +78,9 @@ func (c *Client) IO() {
 				log.Printf("Write to server: %v", err)
 				return
 			}
-		case b := <-c.FromServer:
-			t := b[5] + b[6]<<8
-			c.RPC[t].Reply <- b
+		case r := <-c.FromServer:
+			t := r.b[5] + r.b[6]<<8
+			c.RPC[t].Reply <- r.b
 		}
 	}
 }
@@ -93,13 +93,13 @@ func NewClient(opts ...Opt) (*Client, error) {
 		c.Tags <- Tag(i)
 	}
 	c.FID = 1
-	c.RPC = make([]*RPC, NumTags)
+	c.RPC = make([]*RPCCall, NumTags)
 	for _, o := range opts {
 		if err := o(c); err != nil {
 			return nil, err
 		}
 	}
-	c.FromClient = make(chan *RPC)
+	c.FromClient = make(chan *RPCCall)
 	go c.IO()
 	return c, nil
 }

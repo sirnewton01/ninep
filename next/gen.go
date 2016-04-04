@@ -67,8 +67,10 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 		eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
 		eList += comma + Mn
 		dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
-		dList = comma + Un
+		dList += comma + Un
 		mvars += fmt.Sprintf("b, %v", Mn)
+		dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
+		dCode += fmt.Sprintf("\tt = Tag(uint16(u16[0])<<8|uint16(u16[1]))\n")
 		switch f.Type.Kind() {
 		case reflect.Uint32:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn)
@@ -102,7 +104,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 }
 
 // genMsgCoder tries to generate an encoder and a decoder and caller for a given message pair.
-func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call string, err error) {
+func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call, reply string, err error) {
 	tpacket := tmsg + "Pkt"
 	eTParms, eTCode, eTList, dTRet, dTCode, dTList, err := gen(tv, tmsg, tmsg[0:1])
 	if err != nil {
@@ -115,41 +117,55 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 		return
 	}
 	enc = fmt.Sprintf("func Marshal%v (b *bytes.Buffer, t Tag%v) {\n%v\n\treturn\n}\n", tpacket, eTParms, eTCode)
-	dec = fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, err error) {\n%v\n\treturn\n}\n", tpacket, dTRet, dTCode)
+	dec = fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, t Tag, err error) {\n%v\n\treturn\n}\n", tpacket, dTRet, dTCode)
 	enc += fmt.Sprintf("func Marshal%v (b *bytes.Buffer, t Tag%v) {\n%v\n\treturn\n}\n", rpacket, eRParms, eRCode)
-	dec += fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, err error) {\n%v\n\treturn\n}\n", rpacket, dRRet, dRCode)
+	dec += fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, t Tag, err error) {\n%v\n\treturn\n}\n", rpacket, dRRet, dRCode)
 	// The call code takes teh same paramaters as encode, and has the parameters of decode.
 	// We use named parameters so that on stuff like Read we can return the []b we were passed.
 	// I guess that's stupid, since we *could* just not return the []b, but OTOH this is more
 	// consistent?
 
+	// TODO: use templates.
 	callCode := fmt.Sprintf(`var b = bytes.Buffer{}
 t := <- c.Tags
 r := make (chan []byte)
 Marshal%vPkt(&b, t, %v)
-c.FromClient <- &RPC{b: b.Bytes(), Reply: r}
-return Unmarshal%vPkt(bytes.NewBuffer(<-r))
-}`, tmsg, eTList, rmsg)
+c.FromClient <- &RPCCall{b: b.Bytes(), Reply: r}
+%v, _, err = Unmarshal%vPkt(bytes.NewBuffer(<-r))
+return %v, err
+}`, tmsg, eTList, dRList, rmsg, dRList)
+
+reply = fmt.Sprintf(`func (s Server) Serv%v(b*bytes.Buffer) (err error) {
+	%v, t, err := Unmarshal%vPkt(b)
+	//if err != nil {
+	//}
+	%v, err := s.%v(%v)
+	Marshal%vPkt(b, t, %v)
+	return nil
+}`, rmsg, eTList[2:], tmsg, dRList, rmsg, eTList[2:], rmsg, dRList)
+	
 	fmt.Printf("// %v %v", dTList, eRList)
 	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", tpacket, eTParms[2:], dRRet, callCode, eTList, dRList)
 	return enc + "\n//=====================\n",
 		dec + "\n//=====================\n",
-		/*mvars  + */ call + "\n//=====================\n", nil
+		/*mvars  + */ call + "\n//=====================\n", 
+		reply, nil
 
 }
 
 func main() {
-	var enc, dec, call string
+	var enc, dec, call, reply string
 	for _, p := range packages {
-		e, d, c, err := genMsgRPC(p.c, p.cn, p.r, p.rn)
+		e, d, c, r, err := genMsgRPC(p.c, p.cn, p.r, p.rn)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
 		enc += e
 		dec += d
 		call += c
+		reply += r
 	}
-	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n" + enc + "\n" + dec + "\n\n" + call
+	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n" + enc + "\n" + dec + "\n\n" + call + "\n\n" + reply
 	if err := ioutil.WriteFile("genout.go", []byte(out), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}

@@ -167,18 +167,43 @@ type RversionPkt struct {
 	Version string
 }
 
-type RPC struct {
+type RPCCall struct {
 	b     []byte
 	Reply chan []byte
 }
 
+type RPCReply struct {
+	b     []byte
+}
+
+// Client implements a 9p client. It has a chan containing all tags,
+// a scalar FID which is incremented to provide new FIDS (all FIDS for a given
+// client are unique), an array of MaxTag-2 RPC structs, a ReadWriteCloser
+// for IO, and two channels for a server goroutine: one down which RPCalls are
+// pushed and another from which RPCReplys return.
+// Once a client is marked Dead all further requests to it will fail.
 type Client struct {
 	Tags       chan Tag
 	FID        FID
-	RPC        []*RPC
+	RPC        []*RPCCall
 	Server     io.ReadWriteCloser
-	FromClient chan *RPC
-	FromServer chan []byte
+	FromClient chan *RPCCall
+	FromServer chan *RPCReply
 	Msize      uint32
 	Dead       bool
 }
+
+// Server is a 9p server.
+// For now it's extremely serial. But we will use a chan for replies to ensure that
+// we can go to a more concurrent one later.
+type Server struct {
+	NineServer
+	Client io.ReadWriteCloser
+	Replies chan RPCReply
+}
+
+// Versioner is a 9p server that only implements Version requests.
+type NineServer interface {
+	Rversion(uint32, string) (uint32, string, error)
+}
+
