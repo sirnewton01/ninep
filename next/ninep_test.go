@@ -217,6 +217,9 @@ func (e echo) Dispatch(b *bytes.Buffer, t MType) error {
 }
 
 func (e echo) Rversion(msize uint32, version string) (uint32, string, error) {
+	if version != "9P2000" {
+		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
+	}
 	return msize, version, nil
 }
 
@@ -251,7 +254,13 @@ func TestTVersion(t *testing.T) {
 
 	e.Start()
 	t.Logf("Server is %v", e.String())
-	m, v, err := c.CallTversion(8000, "9p2000")
+	m, v, err := c.CallTversion(8000, "9p3000")
+	if err == nil {
+		t.Fatalf("CallTversion: want err, got nil")
+	}
+	t.Logf("CallTversion: wanted an error and got %v", err)
+
+	m, v, err = c.CallTversion(8000, "9P2000")
 	if err != nil {
 		t.Fatalf("CallTversion: want nil, got %v", err)
 	}

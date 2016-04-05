@@ -179,7 +179,6 @@ func (s *Server) readNetPackets() {
 		//panic(fmt.Sprintf("packet is %v", b.Bytes()[:]))
 		if err := s.NS.Dispatch(b, t); err != nil {
 			log.Printf("%v: %v", RPCNames[MType(l[4])], err)
-			continue
 		}
 		s.Trace("readNetPackets: Write %v back", b)
 		amt, err := s.ToNet.Write(b.Bytes())

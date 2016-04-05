@@ -175,6 +175,10 @@ type RversionPkt struct {
 	Version string
 }
 
+type RerrorPkt struct {
+	error string
+}
+
 type RPCCall struct {
 	b     []byte
 	Reply chan []byte
