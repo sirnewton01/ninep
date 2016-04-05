@@ -7,6 +7,7 @@ package next
 import (
 	"bytes"
 	"flag"
+	"io"
 	//	"math"
 	"reflect"
 	"testing"
@@ -193,3 +194,20 @@ func TestTags(t *testing.T) {
 		t.Errorf("Got one tag, len(tags) is %d, want %d", len(tags), 1<<16-1)
 	}
 }
+
+type echo struct {
+	Server
+	fromClient io.Reader
+	toClient io.Writer
+}
+
+func (e echo) Rversion(msize uint32, version string) (uint32, string, error) {
+	return msize, version, nil
+}
+
+func newEchoServer() (NineServer) {
+	e := &echo{}
+	e.fromClient, e.toClient = io.Pipe()
+	return &echo{}
+}
+
