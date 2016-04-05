@@ -158,7 +158,7 @@ return %v, err
 
 func main() {
 	var enc, dec, call, reply string
-	dispatch := `func (s *Server) dispatch(b *bytes.Buffer) {
+	dispatch := `func (s Server) dispatch(b *bytes.Buffer) {
 t := MType(b.Bytes()[4])
 switch(t) {
 `

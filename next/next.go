@@ -7,31 +7,18 @@ package next
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"runtime"
 	"sync/atomic"
 )
 
-type Opt func(...interface{}) error
-
-var (
-	tags chan Tag
-	fid  uint64
-)
-
-func init() {
-	tags = make(chan Tag, 1<<16)
-	for i := 0; i < 1<<16; i++ {
-		tags <- Tag(i)
-	}
-}
-
 // GetTag gets a tag to be used to identify a message.
-func GetTag() Tag {
-	t := <-tags
+func (c *Client) GetTag() Tag {
+	t := <-c.Tags
 	runtime.SetFinalizer(&t, func(t *Tag) {
-		tags <- *t
+		c.Tags <- *t
 	})
 	return t
 }
@@ -39,8 +26,8 @@ func GetTag() Tag {
 // GetFID gets a fid to be used to identify a resource for a 9p client.
 // For a given lifetime of a 9p client, FIDS are unique (i.e. not reused as in
 // many 9p client libraries).
-func GetFID() FID {
-	return FID(atomic.AddUint64(&fid, 1))
+func (c *Client) GetFID() FID {
+	return FID(atomic.AddUint64(&c.FID, 1))
 }
 
 func (c *Client) readNetPackets() {
@@ -69,7 +56,7 @@ func (c *Client) IO() {
 	for {
 		select {
 		case r := <-c.FromClient:
-			t := <-tags
+			t := <-c.Tags
 			r.b[5] = uint8(t)
 			r.b[6] = uint8(t >> 8)
 			c.RPC[int(t)] = r
@@ -85,11 +72,16 @@ func (c *Client) IO() {
 	}
 }
 
-func NewClient(opts ...Opt) (*Client, error) {
+func (c *Client) String() string{
+	z := map[bool]string {false: "Alive", true: "Dead"}
+	return fmt.Sprintf("%v tags available, Msize %v, %v", len(c.Tags), c.Msize, z[c.Dead])
+}
+
+func NewClient(opts ...ClientOpt) (*Client, error) {
 	var c = &Client{}
 
-	c.Tags = make(chan Tag, NumTags-1)
-	for i := 0; i < int(NOTAG); i++ {
+	c.Tags = make(chan Tag, NumTags)
+	for i := 1; i < int(NOTAG); i++ {
 		c.Tags <- Tag(i)
 	}
 	c.FID = 1
@@ -102,4 +94,15 @@ func NewClient(opts ...Opt) (*Client, error) {
 	c.FromClient = make(chan *RPCCall)
 	go c.IO()
 	return c, nil
+}
+
+func NewServer(opts ...ServerOpt) (*Server, error) {
+	s := &Server{}
+	s.Replies = make(chan RPCReply, NumTags)
+	for _, o := range opts {
+		if err := o(s); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
 }

@@ -97,7 +97,10 @@ const (
 const (
 	NOTAG   Tag = 0xFFFF     // no tag specified
 	NOFID   FID = 0xFFFFFFFF // no fid specified
-	NumTags     = 1 << 16
+	// We reserve tag NOTAG and tag 0. 0 is a troublesome value to pass
+	// around, since it is also a default value and using it can hide errors
+	// in the code.
+	NumTags     = 1 << 16-2
 )
 
 // Error values
@@ -123,6 +126,9 @@ type (
 	Offset     uint64
 	Data       []byte
 )
+
+type ClientOpt func(*Client) error
+type ServerOpt func(*Server) error
 
 // Error represents a 9P2000 (and 9P2000.u) error
 type Error struct {
@@ -185,7 +191,7 @@ type RPCReply struct {
 // The ToNet/FromNet are separate so we can use io.Pipe for testing.
 type Client struct {
 	Tags       chan Tag
-	FID        FID
+	FID        uint64
 	RPC        []*RPCCall
 	ToNet      io.WriteCloser
 	FromNet    io.ReadCloser
@@ -200,7 +206,8 @@ type Client struct {
 // we can go to a more concurrent one later.
 type Server struct {
 	NineServer
-	Client  io.ReadWriteCloser
+	FromNet  io.ReadCloser
+	ToNet io.WriteCloser
 	Replies chan RPCReply
 }
 

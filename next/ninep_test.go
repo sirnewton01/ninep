@@ -189,9 +189,13 @@ func TestDecode(t *testing.T) {
 */
 
 func TestTags(t *testing.T) {
-	_ = GetTag()
-	if len(tags) != 1<<16-1 {
-		t.Errorf("Got one tag, len(tags) is %d, want %d", len(tags), 1<<16-1)
+	c, err := NewClient()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	_ = c.GetTag()
+	if len(c.Tags) != NumTags-1 {
+		t.Errorf("Got one tag, len(tags) is %d, want %d", len(c.Tags), NumTags-1)
 	}
 }
 
@@ -209,4 +213,20 @@ func newEchoServer() NineServer {
 	e := &echo{}
 	e.fromClient, e.toClient = io.Pipe()
 	return &echo{}
+}
+
+func TestTVersion(t *testing.T) {
+	c, err := NewClient(func(c*Client) error {
+		c.FromNet, c.ToNet = io.Pipe()
+		return nil
+	},
+		func(c *Client) error {
+			c.Msize = 8192
+			return nil
+	})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	t.Logf("Client is %v", c.String())
+	
 }
