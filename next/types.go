@@ -187,6 +187,16 @@ type RattachPkt struct {
 	QID QID
 }
 
+type TwalkPkt struct {
+	FID uint64
+	NewFID uint64
+	Paths []string
+}
+
+type RwalkPkt struct {
+	QIDs []QID
+}
+
 type RerrorPkt struct {
 	error string
 }

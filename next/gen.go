@@ -41,45 +41,15 @@ var (
 		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
+//		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
+	inBWrite bool = true
+	comma string
 )
 
-// For a given message type, gen generates declarations, return values, lists of variables, and code.
-func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, dList string, err error) {
-	comma := ""
-	var inBWrite bool = true
-	//packet := msg + "Pkt"
-	mvars := ""
-	//	code := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
-	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
-	// The tag type, and the tag itself.
-	eCode = "\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
-	dCode = "\tvar u16 [2]byte\n\t"
-	// Unmarshal will always return the tag in addition to everything else.
-	dRet = ""
-
-	t := reflect.TypeOf(v)
-	dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
-	dCode += fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n")
-	for i := 0; i < t.NumField(); i++ {
-		if !inBWrite {
-			eCode += "\tb.Write([]byte{"
-			inBWrite = true
-		}
-		f := t.Field(i)
-		Mn := "M" + prefix + f.Name
-		Un := "U" + prefix + f.Name
-		eList += comma + Mn
-		dList += comma + Un
-		mvars += fmt.Sprintf("b, %v", Mn)
-
-		k := f.Type.Kind()
-		switch k {
-		case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
-			eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
-			dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
-		}
-
+func code(k reflect.Kind, f reflect.StructField, Mn, Un string) (string, string, string, string, error) {
+	var eCode, dCode, eParms, dRet string
+	var err error
 		switch {
 		case k == reflect.Uint64:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn)
@@ -136,9 +106,54 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 			}
 			dCode += "\n}"
 		default:
-			err = fmt.Errorf("Can't encode %T.%v", v, f)
+			err = fmt.Errorf("Can't encode %v f.Type %v", f, f.Type)
+			return eCode, dCode, eParms, dRet, err
+		}
+	return eCode, dCode, eParms, dRet, nil
+}
+
+// For a given message type, gen generates declarations, return values, lists of variables, and code.
+func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, dList string, err error) {
+	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
+	// The tag type, and the tag itself.
+	eCode = "\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
+	dCode = "\tvar u16 [2]byte\n\t"
+	inBWrite = true
+	comma = ""
+	// Unmarshal will always return the tag in addition to everything else.
+	dRet = ""
+
+	dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
+	dCode += fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n")
+	t := reflect.TypeOf(v)
+	for i := 0; i < t.NumField(); i++ {
+		if !inBWrite {
+			eCode += "\tb.Write([]byte{"
+			inBWrite = true
+		}
+		f := t.Field(i)
+		Mn := "M" + prefix + f.Name
+		Un := "U" + prefix + f.Name
+		eList += comma + Mn
+		dList += comma + Un
+
+		k := f.Type.Kind()
+		switch k {
+		case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
+			eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
+			dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
+		}
+
+		
+		e, d, ep, dr, er := code(k, f, Mn, Un)
+		if er != nil {
+			err = er
 			return
 		}
+		eCode += e
+		dCode += d
+		eParms += ep
+		dRet += dr
 		comma = ", "
 	}
 	if inBWrite {
@@ -216,7 +231,7 @@ if err != nil {
 
 	return enc + "\n//=====================\n",
 		dec + "\n//=====================\n",
-		/*mvars  + */ call + "\n//=====================\n",
+		call + "\n//=====================\n",
 		reply, dispatch, nil
 
 }
