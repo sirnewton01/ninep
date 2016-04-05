@@ -10,6 +10,7 @@ import (
 )
 
 type ufs struct {
+	*next.Server
 }
 
 func (u *ufs) Rversion(msize uint32, version string) (uint32, string, error) {

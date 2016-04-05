@@ -198,16 +198,15 @@ func TestTags(t *testing.T) {
 type echo struct {
 	Server
 	fromClient io.Reader
-	toClient io.Writer
+	toClient   io.Writer
 }
 
 func (e echo) Rversion(msize uint32, version string) (uint32, string, error) {
 	return msize, version, nil
 }
 
-func newEchoServer() (NineServer) {
+func newEchoServer() NineServer {
 	e := &echo{}
 	e.fromClient, e.toClient = io.Pipe()
 	return &echo{}
 }
-

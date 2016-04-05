@@ -173,7 +173,7 @@ type RPCCall struct {
 }
 
 type RPCReply struct {
-	b     []byte
+	b []byte
 }
 
 // Client implements a 9p client. It has a chan containing all tags,
@@ -182,11 +182,13 @@ type RPCReply struct {
 // for IO, and two channels for a server goroutine: one down which RPCalls are
 // pushed and another from which RPCReplys return.
 // Once a client is marked Dead all further requests to it will fail.
+// The ToNet/FromNet are separate so we can use io.Pipe for testing.
 type Client struct {
 	Tags       chan Tag
 	FID        FID
 	RPC        []*RPCCall
-	Server     io.ReadWriteCloser
+	ToNet      io.WriteCloser
+	FromNet    io.ReadCloser
 	FromClient chan *RPCCall
 	FromServer chan *RPCReply
 	Msize      uint32
@@ -198,7 +200,7 @@ type Client struct {
 // we can go to a more concurrent one later.
 type Server struct {
 	NineServer
-	Client io.ReadWriteCloser
+	Client  io.ReadWriteCloser
 	Replies chan RPCReply
 }
 
@@ -206,4 +208,3 @@ type Server struct {
 type NineServer interface {
 	Rversion(uint32, string) (uint32, string, error)
 }
-

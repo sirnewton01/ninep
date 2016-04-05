@@ -104,7 +104,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 }
 
 // genMsgCoder tries to generate an encoder and a decoder and caller for a given message pair.
-func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call, reply string, err error) {
+func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call, reply, dispatch string, err error) {
 	tpacket := tmsg + "Pkt"
 	eTParms, eTCode, eTList, dTRet, dTCode, dTList, err := gen(tv, tmsg, tmsg[0:1])
 	if err != nil {
@@ -135,7 +135,7 @@ c.FromClient <- &RPCCall{b: b.Bytes(), Reply: r}
 return %v, err
 }`, tmsg, eTList, dRList, rmsg, dRList)
 
-reply = fmt.Sprintf(`func (s Server) Serv%v(b*bytes.Buffer) (err error) {
+	reply = fmt.Sprintf(`func (s Server) Serv%v(b*bytes.Buffer) (err error) {
 	%v, t, err := Unmarshal%vPkt(b)
 	//if err != nil {
 	//}
@@ -143,20 +143,27 @@ reply = fmt.Sprintf(`func (s Server) Serv%v(b*bytes.Buffer) (err error) {
 	Marshal%vPkt(b, t, %v)
 	return nil
 }`, rmsg, eTList[2:], tmsg, dRList, rmsg, eTList[2:], rmsg, dRList)
-	
+
 	fmt.Printf("// %v %v", dTList, eRList)
 	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", tpacket, eTParms[2:], dRRet, callCode, eTList, dRList)
+
+	dispatch = fmt.Sprintf("case %v:\n\ts.Serv%v(b)\n", tmsg, rmsg)
+
 	return enc + "\n//=====================\n",
 		dec + "\n//=====================\n",
-		/*mvars  + */ call + "\n//=====================\n", 
-		reply, nil
+		/*mvars  + */ call + "\n//=====================\n",
+		reply, dispatch, nil
 
 }
 
 func main() {
 	var enc, dec, call, reply string
+	dispatch := `func (s *Server) dispatch(b *bytes.Buffer) {
+t := MType(b.Bytes()[4])
+switch(t) {
+`
 	for _, p := range packages {
-		e, d, c, r, err := genMsgRPC(p.c, p.cn, p.r, p.rn)
+		e, d, c, r, s, err := genMsgRPC(p.c, p.cn, p.r, p.rn)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
@@ -164,8 +171,10 @@ func main() {
 		dec += d
 		call += c
 		reply += r
+		dispatch += s
 	}
-	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n)\n" + enc + "\n" + dec + "\n\n" + call + "\n\n" + reply
+	dispatch += "\n\tdefault: log.Fatalf(\"Can't happen: bad packet type 0x%x\\n\", t)\n}\n}"
+	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n\t\"log\"\n)\n" + enc + "\n" + dec + "\n\n" + call + "\n\n" + reply + "\n\n" + dispatch
 	if err := ioutil.WriteFile("genout.go", []byte(out), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}

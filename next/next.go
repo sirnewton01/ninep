@@ -43,20 +43,20 @@ func GetFID() FID {
 	return FID(atomic.AddUint64(&fid, 1))
 }
 
-func (c *Client) readServerPackets() {
-	defer c.Server.Close()
+func (c *Client) readNetPackets() {
+	defer c.FromNet.Close()
 	for !c.Dead {
 		l := make([]byte, 64)
-		if n, err := c.Server.Read(l); err != nil || n < 7 {
-			log.Printf("readServerPackets: short read: %v", err)
+		if n, err := c.FromNet.Read(l); err != nil || n < 7 {
+			log.Printf("readNetPackets: short read: %v", err)
 			c.Dead = true
 			return
 		}
 		s := int64(l[0]) + int64(l[1])<<8 + int64(l[2])<<16 + int64(l[3])<<24
 		b := bytes.NewBuffer(l)
-		r := io.LimitReader(c.Server, s)
+		r := io.LimitReader(c.FromNet, s)
 		if _, err := io.Copy(b, r); err != nil {
-			log.Printf("readServerPackets: short read: %v", err)
+			log.Printf("readNetPackets: short read: %v", err)
 			c.Dead = true
 			return
 		}
@@ -73,7 +73,7 @@ func (c *Client) IO() {
 			r.b[5] = uint8(t)
 			r.b[6] = uint8(t >> 8)
 			c.RPC[int(t)] = r
-			if _, err := c.Server.Write(r.b); err != nil {
+			if _, err := c.ToNet.Write(r.b); err != nil {
 				c.Dead = true
 				log.Printf("Write to server: %v", err)
 				return
@@ -103,4 +103,3 @@ func NewClient(opts ...Opt) (*Client, error) {
 	go c.IO()
 	return c, nil
 }
-
