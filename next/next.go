@@ -103,3 +103,4 @@ func NewClient(opts ...Opt) (*Client, error) {
 	go c.IO()
 	return c, nil
 }
+
