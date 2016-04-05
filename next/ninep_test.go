@@ -7,6 +7,7 @@ package next
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"io"
 	//	"math"
 	"reflect"
@@ -165,7 +166,7 @@ func TestEncode(t *testing.T) {
 }
 
 /*
-func TestDecode(t *testing.T) {
+func testDecode(t *testing.T) {
 	var tests = []struct {
 		n string
 		b []byte
@@ -200,33 +201,60 @@ func TestTags(t *testing.T) {
 }
 
 type echo struct {
-	Server
-	fromClient io.Reader
-	toClient   io.Writer
+	*Server
+}
+
+// Dispatch dispatches request to different functions.
+// We could do this with interface assertions and such a al rsc/fuse
+// but most people I talked do disliked that. So we don't. If you want
+// to make things optional, just define the ones you want to implement in this case.
+func (e echo) Dispatch(b *bytes.Buffer, t MType) error {
+	switch t {
+	case Tversion:
+		return e.SrvRversion(b)
+	}
+	return fmt.Errorf("Dispatch: %v not supported", RPCNames[t])
 }
 
 func (e echo) Rversion(msize uint32, version string) (uint32, string, error) {
 	return msize, version, nil
 }
 
-func newEchoServer() NineServer {
-	e := &echo{}
-	e.fromClient, e.toClient = io.Pipe()
-	return &echo{}
-}
-
 func TestTVersion(t *testing.T) {
-	c, err := NewClient(func(c*Client) error {
-		c.FromNet, c.ToNet = io.Pipe()
+	sr, cw := io.Pipe()
+	cr, sw := io.Pipe()
+	c, err := NewClient(func(c *Client) error {
+		c.FromNet, c.ToNet = cr, cw
 		return nil
 	},
 		func(c *Client) error {
 			c.Msize = 8192
+			c.Trace = t.Logf
 			return nil
-	})
+		})
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 	t.Logf("Client is %v", c.String())
-	
+
+	e := &echo{}
+	e.Server, err = NewServer(func(s *Server) error {
+		s.FromNet, s.ToNet = sr, sw
+		s.Trace = t.Logf
+		s.NS = e
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("NewServer: want nil, got %v", err)
+	}
+
+	e.Start()
+	t.Logf("Server is %v", e.String())
+	m, v, err := c.CallTversion(8000, "9p2000")
+	if err != nil {
+		t.Fatalf("CallTversion: want nil, got %v", err)
+	}
+	t.Logf("CallTversion: msize %v version %v", m, v)
+
 }

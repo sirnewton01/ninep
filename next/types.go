@@ -5,6 +5,7 @@
 package next
 
 import (
+	"bytes"
 	"io"
 )
 
@@ -95,12 +96,12 @@ const (
 )
 
 const (
-	NOTAG   Tag = 0xFFFF     // no tag specified
-	NOFID   FID = 0xFFFFFFFF // no fid specified
+	NOTAG Tag = 0xFFFF     // no tag specified
+	NOFID FID = 0xFFFFFFFF // no fid specified
 	// We reserve tag NOTAG and tag 0. 0 is a troublesome value to pass
 	// around, since it is also a default value and using it can hide errors
 	// in the code.
-	NumTags     = 1 << 16-2
+	NumTags = 1<<16 - 2
 )
 
 // Error values
@@ -129,6 +130,7 @@ type (
 
 type ClientOpt func(*Client) error
 type ServerOpt func(*Server) error
+type Tracer func(string, ...interface{})
 
 // Error represents a 9P2000 (and 9P2000.u) error
 type Error struct {
@@ -199,19 +201,22 @@ type Client struct {
 	FromServer chan *RPCReply
 	Msize      uint32
 	Dead       bool
+	Trace      Tracer
 }
 
 // Server is a 9p server.
 // For now it's extremely serial. But we will use a chan for replies to ensure that
 // we can go to a more concurrent one later.
 type Server struct {
-	NineServer
-	FromNet  io.ReadCloser
-	ToNet io.WriteCloser
+	NS      NineServer
+	FromNet io.ReadCloser
+	ToNet   io.WriteCloser
 	Replies chan RPCReply
+	Trace   Tracer
+	Dead    bool
 }
 
-// Versioner is a 9p server that only implements Version requests.
 type NineServer interface {
+	Dispatch(*bytes.Buffer, MType) error
 	Rversion(uint32, string) (uint32, string, error)
 }

@@ -24,10 +24,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/rminnich/ninep/next"
 	"io/ioutil"
 	"log"
 	"reflect"
+
+	"github.com/rminnich/ninep/next"
 )
 
 var (
@@ -50,12 +51,14 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 	//	code := "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
-	eCode = "\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
+	eCode = "\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
 	dCode = "\tvar u32 [4]byte\n\tvar u16 [2]byte\n\tvar l int\n"
 	// Unmarshal will always return the tag in addition to everything else.
 	dRet = ""
 
 	t := reflect.TypeOf(v)
+	dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
+	dCode += fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n")
 	for i := 0; i < t.NumField(); i++ {
 		if !inBWrite {
 			eCode += "\tb.Write([]byte{"
@@ -69,18 +72,16 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 		dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
 		dList += comma + Un
 		mvars += fmt.Sprintf("b, %v", Mn)
-		dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
-		dCode += fmt.Sprintf("\tt = Tag(uint16(u16[0])<<8|uint16(u16[1]))\n")
 		switch f.Type.Kind() {
 		case reflect.Uint32:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn)
 			eCode += fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn)
 			dCode += "\tif _, err = b.Read(u32[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\treturn\n\t}\n"
-			dCode += fmt.Sprintf("\t%v = uint32(u32[0])<<24|uint32(u32[1])<<16|uint32(u32[2])<<8|uint32(u32[3])\n", Un)
+			dCode += fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n", Un)
 		case reflect.Uint16:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn)
 			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
-			dCode += fmt.Sprintf("\t%v = uint16(u16[0])<<8|uint16(u16[1])\n", Un)
+			dCode += fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un)
 		case reflect.String:
 			eCode += fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn)
 			if inBWrite {
@@ -89,7 +90,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 			}
 			eCode += fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn)
 			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
-			dCode += fmt.Sprintf("\tl = int(u16[0])<<8|int(u16[1])\n")
+			dCode += fmt.Sprintf("\tl = int(u16[0])|int(u16[1]<<8)\n")
 			dCode += "\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n"
 			dCode += fmt.Sprintf("\t%v = b.String()\n", Un)
 		default:
@@ -106,13 +107,13 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 // genMsgCoder tries to generate an encoder and a decoder and caller for a given message pair.
 func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call, reply, dispatch string, err error) {
 	tpacket := tmsg + "Pkt"
-	eTParms, eTCode, eTList, dTRet, dTCode, dTList, err := gen(tv, tmsg, tmsg[0:1])
+	eTParms, eTCode, eTList, dTRet, dTCode, _, err := gen(tv, tmsg, tmsg[0:1])
 	if err != nil {
 		return
 	}
 
 	rpacket := rmsg + "Pkt"
-	eRParms, eRCode, eRList, dRRet, dRCode, dRList, err := gen(rv, rmsg, rmsg[0:1])
+	eRParms, eRCode, _, dRRet, dRCode, dRList, err := gen(rv, rmsg, rmsg[0:1])
 	if err != nil {
 		return
 	}
@@ -127,27 +128,29 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 
 	// TODO: use templates.
 	callCode := fmt.Sprintf(`var b = bytes.Buffer{}
+c.Trace("%v")
 t := <- c.Tags
 r := make (chan []byte)
+c.Trace(":tag %%v, FID %%v", t, c.FID)
 Marshal%vPkt(&b, t, %v)
 c.FromClient <- &RPCCall{b: b.Bytes(), Reply: r}
-%v, _, err = Unmarshal%vPkt(bytes.NewBuffer(<-r))
+bb := <-r
+%v, _, err = Unmarshal%vPkt(bytes.NewBuffer(bb[5:]))
 return %v, err
-}`, tmsg, eTList, dRList, rmsg, dRList)
+}`, tmsg, tmsg, eTList, dRList, rmsg, dRList)
 
-	reply = fmt.Sprintf(`func (s Server) Serv%v(b*bytes.Buffer) (err error) {
+	reply = fmt.Sprintf(`func (s *Server) Srv%v(b*bytes.Buffer) (err error) {
 	%v, t, err := Unmarshal%vPkt(b)
 	//if err != nil {
 	//}
-	%v, err := s.%v(%v)
+	%v, err := s.NS.%v(%v)
 	Marshal%vPkt(b, t, %v)
 	return nil
 }`, rmsg, eTList[2:], tmsg, dRList, rmsg, eTList[2:], rmsg, dRList)
 
-	fmt.Printf("// %v %v", dTList, eRList)
-	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", tpacket, eTParms[2:], dRRet, callCode, eTList, dRList)
+	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", tmsg, eTParms[2:], dRRet, callCode, eTList, dRList)
 
-	dispatch = fmt.Sprintf("case %v:\n\ts.Serv%v(b)\n", tmsg, rmsg)
+	dispatch = fmt.Sprintf("case %v:\n\ts.Trace(\"%v\")\n\ts.Srv%v(b)\n", tmsg, tmsg, rmsg)
 
 	return enc + "\n//=====================\n",
 		dec + "\n//=====================\n",
@@ -158,7 +161,7 @@ return %v, err
 
 func main() {
 	var enc, dec, call, reply string
-	dispatch := `func (s Server) dispatch(b *bytes.Buffer) {
+	dispatch := `func dispatch(s *Server, b *bytes.Buffer) error {
 t := MType(b.Bytes()[4])
 switch(t) {
 `
@@ -173,7 +176,7 @@ switch(t) {
 		reply += r
 		dispatch += s
 	}
-	dispatch += "\n\tdefault: log.Fatalf(\"Can't happen: bad packet type 0x%x\\n\", t)\n}\n}"
+	dispatch += "\n\tdefault: log.Fatalf(\"Can't happen: bad packet type 0x%x\\n\", t)\n}\nreturn nil\n}"
 	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n\t\"log\"\n)\n" + enc + "\n" + dec + "\n\n" + call + "\n\n" + reply + "\n\n" + dispatch
 	if err := ioutil.WriteFile("genout.go", []byte(out), 0600); err != nil {
 		log.Fatalf("%v", err)
