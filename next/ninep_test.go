@@ -202,28 +202,37 @@ func TestTags(t *testing.T) {
 
 type echo struct {
 	*Server
+	Versioned bool
 }
 
 // Dispatch dispatches request to different functions.
 // We could do this with interface assertions and such a al rsc/fuse
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
-func (e echo) Dispatch(b *bytes.Buffer, t MType) error {
+func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 	switch t {
 	case Tversion:
 		return e.SrvRversion(b)
+	case Tattach:
+		return e.SrvRattach(b)
 	}
-	return fmt.Errorf("Dispatch: %v not supported", RPCNames[t])
+	// This has been tested by removed Attach from the switch.
+	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
+	return nil
 }
 
-func (e echo) Rversion(msize uint32, version string) (uint32, string, error) {
+func (e *echo) Rversion(msize uint32, version string) (uint32, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
 	}
+	e.Versioned = true
 	return msize, version, nil
 }
 
-func (e echo) Rattach(uint64, uint64, string, string) (QID, error) {
+func (e *echo) Rattach(uint64, uint64, string, string) (QID, error) {
+	if !e.Versioned {
+		return QID{}, fmt.Errorf("Version must be one first")
+	}
 	return QID{}, nil
 }
 
@@ -258,6 +267,11 @@ func TestTVersion(t *testing.T) {
 
 	e.Start()
 	t.Logf("Server is %v", e.String())
+	if _, err = c.CallTattach(0, 0, "", ""); err == nil {
+		t.Fatalf("CallTattach: want err, got nil")
+	}
+	t.Logf("CallTattach: wanted an error and got %v", err)
+
 	m, v, err := c.CallTversion(8000, "9p3000")
 	if err == nil {
 		t.Fatalf("CallTversion: want err, got nil")
@@ -269,5 +283,12 @@ func TestTVersion(t *testing.T) {
 		t.Fatalf("CallTversion: want nil, got %v", err)
 	}
 	t.Logf("CallTversion: msize %v version %v", m, v)
+
+	t.Logf("Server is %v", e.String())
+	a, err := c.CallTattach(0, 0, "", "")
+	if err != nil {
+		t.Fatalf("CallTattach: want nil, got %v", err)
+	}
+	t.Logf("Attach is %v", a)
 
 }

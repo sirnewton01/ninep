@@ -54,7 +54,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
 	eCode = "\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
-	dCode = "\tvar u16 [2]byte\n\tvar l int\n"
+	dCode = "\tvar u16 [2]byte\n\t"
 	// Unmarshal will always return the tag in addition to everything else.
 	dRet = ""
 
@@ -75,7 +75,7 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 
 		k := f.Type.Kind()
 		switch k {
-			case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
+		case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
 			eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
 			dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
 		}
@@ -106,9 +106,9 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 			}
 			eCode += fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn)
 			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
-			dCode += fmt.Sprintf("\tl = int(u16[0])|int(u16[1]<<8)\n")
+			dCode += fmt.Sprintf("\t{ var l = int(u16[0])|int(u16[1]<<8)\n")
 			dCode += "\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n"
-			dCode += fmt.Sprintf("\t%v = b.String()\n", Un)
+			dCode += fmt.Sprintf("\t%v = b.String()\n}\n", Un)
 
 		// one option is to call ourselves with this but let's try this for now.
 		// There are very few types in 9p.
@@ -125,10 +125,16 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 			eCode += fmt.Sprintf("uint8(%v.Path>>32),uint8(%v.Path>>40),\n", Mn, Mn)
 			eCode += fmt.Sprintf("uint8(%v.Path>>48),uint8(%v.Path>>56),\n", Mn, Mn)
 
-/*
-			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
-			dCode += fmt.Sprintf("\t%v = uint32(%v->Version)<<0|uint32(%v->Version)<<8|uint32(%v->Version)<<16|uint32(%v->Version)<<24\n}\n", Mn, Mn, Mn, Mn)
- */
+			dCode += "\tif b.Len() < QIDLen {\n\t\terr = fmt.Errorf(\"pkt too short for QID: need 13, have %d\", b.Len())\n\treturn\n\t}\n"
+			dCode += "{ q := b.Bytes()\n"
+			dCode += fmt.Sprintf("\t%v.Type = q[0]\n", Un)
+			for i := 0; i < 4; i++ {
+				dCode += fmt.Sprintf("\t%v.Version |= uint32(q[%d+1])<<%d\n", Un, i, i*8)
+			}
+			for i := 0; i < 8; i++ {
+				dCode += fmt.Sprintf("\t%v.Path |= uint64(q[%d+5])<<%d\n", Un, i, i*8)
+			}
+			dCode += "\n}"
 		default:
 			err = fmt.Errorf("Can't encode %T.%v", v, f)
 			return
@@ -235,6 +241,17 @@ switch(t) {
 	}
 	dispatch += "\n\tdefault: log.Fatalf(\"Can't happen: bad packet type 0x%x\\n\", t)\n}\nreturn nil\n}"
 	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n\t\"log\"\n)\n" + enc + "\n" + dec + "\n\n" + call + "\n\n" + reply + "\n\n" + dispatch
+	out += `
+func ServerError (b *bytes.Buffer, s string) {
+	var u16 [2]byte
+	// This can't really happen. 
+	if _, err := b.Read(u16[:]); err != nil {
+		return
+	}
+	t := Tag(uint16(u16[0])|uint16(u16[1])<<8)
+	MarshalRerrorPkt (b, t, s)
+}
+`
 	if err := ioutil.WriteFile("genout.go", []byte(out), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}

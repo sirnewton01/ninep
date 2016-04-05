@@ -47,6 +47,7 @@ const (
 	IOHDRSZ = 24                  // the non-data size of the Twrite messages
 	PORT    = 564                 // default port for 9P file servers
 	NumFID  = 1 << 16
+	QIDLen  = 13
 )
 
 // QID types
@@ -176,8 +177,8 @@ type RversionPkt struct {
 }
 
 type TattachPkt struct {
-	FID uint64
-	AFID uint64
+	FID   uint64
+	AFID  uint64
 	Uname string
 	Aname string
 }
