@@ -223,6 +223,10 @@ func (e echo) Rversion(msize uint32, version string) (uint32, string, error) {
 	return msize, version, nil
 }
 
+func (e echo) Rattach(uint64, uint64, string, string) (QID, error) {
+	return QID{}, nil
+}
+
 func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()

@@ -40,6 +40,7 @@ var (
 	}{
 		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
+		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 	}
 )
 
@@ -68,22 +69,36 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 		f := t.Field(i)
 		Mn := "M" + prefix + f.Name
 		Un := "U" + prefix + f.Name
-		eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
 		eList += comma + Mn
-		dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
 		dList += comma + Un
 		mvars += fmt.Sprintf("b, %v", Mn)
-		switch f.Type.Kind() {
-		case reflect.Uint32:
+
+		k := f.Type.Kind()
+		switch k {
+			case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
+			eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
+			dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
+		}
+
+		switch {
+		case k == reflect.Uint64:
+			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn)
+			eCode += fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn)
+			eCode += fmt.Sprintf("\tuint8(%v)>>32,uint8(%v>>40),", Mn, Mn)
+			eCode += fmt.Sprintf("uint8(%v>>48),uint8(%v>>56),\n", Mn, Mn)
+			dCode += "\t{\n\tvar u64 [8]byte\n\tif _, err = b.Read(u64[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint64: need 8, have %d\", b.Len())\n\treturn\n\t}\n"
+			dCode += fmt.Sprintf("\t%v = uint64(u64[0])<<0|uint64(u64[1])<<8|uint64(u64[2])<<16|uint64(u64[3])<<24\n", Un)
+			dCode += fmt.Sprintf("\t%v = uint64(u64[0])<<32|uint64(u64[1])<<40|uint64(u64[2])<<48|uint64(u64[3])<<56\n}\n", Un)
+		case k == reflect.Uint32:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn)
 			eCode += fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn)
 			dCode += "\t{\n\tvar u32 [4]byte\n\tif _, err = b.Read(u32[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\treturn\n\t}\n"
 			dCode += fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un)
-		case reflect.Uint16:
+		case k == reflect.Uint16:
 			eCode += fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn)
 			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
 			dCode += fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un)
-		case reflect.String:
+		case k == reflect.String:
 			eCode += fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn)
 			if inBWrite {
 				eCode += "\t})\n"
@@ -94,11 +109,35 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 			dCode += fmt.Sprintf("\tl = int(u16[0])|int(u16[1]<<8)\n")
 			dCode += "\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n"
 			dCode += fmt.Sprintf("\t%v = b.String()\n", Un)
+
+		// one option is to call ourselves with this but let's try this for now.
+		// There are very few types in 9p.
+		case f.Name == "QID":
+			eParms += fmt.Sprintf(", %v QID", Mn)
+			dRet += fmt.Sprintf("%v%v QID", comma, Un)
+			eCode += fmt.Sprintf("\tuint8(%v.Type),", Mn)
+
+			eCode += fmt.Sprintf("\tuint8(%v.Version),uint8(%v.Version>>8),", Mn, Mn)
+			eCode += fmt.Sprintf("uint8(%v.Version>>16),uint8(%v.Version>>24),\n", Mn, Mn)
+
+			eCode += fmt.Sprintf("uint8(%v.Path>>0),uint8(%v.Path>>8),\n", Mn, Mn)
+			eCode += fmt.Sprintf("uint8(%v.Path>>16),uint8(%v.Path>>24),\n", Mn, Mn)
+			eCode += fmt.Sprintf("uint8(%v.Path>>32),uint8(%v.Path>>40),\n", Mn, Mn)
+			eCode += fmt.Sprintf("uint8(%v.Path>>48),uint8(%v.Path>>56),\n", Mn, Mn)
+
+/*
+			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
+			dCode += fmt.Sprintf("\t%v = uint32(%v->Version)<<0|uint32(%v->Version)<<8|uint32(%v->Version)<<16|uint32(%v->Version)<<24\n}\n", Mn, Mn, Mn, Mn)
+ */
 		default:
 			err = fmt.Errorf("Can't encode %T.%v", v, f)
 			return
 		}
 		comma = ", "
+	}
+	if inBWrite {
+		eCode += "\t})\n"
+		inBWrite = false
 	}
 	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n"
 
@@ -162,7 +201,8 @@ if err != nil {
 	Marshal%vPkt(b, t, %v)
 }
 	return nil
-}`, rmsg, eTList[2:], tmsg, dRList, rmsg, eTList[2:], rmsg, dRList)
+}
+`, rmsg, eTList[2:], tmsg, dRList, rmsg, eTList[2:], rmsg, dRList)
 
 	call = fmt.Sprintf("func (c *Client)Call%v (%v) (%v, err error) {\n%v\n /*%v / %v */\n", tmsg, eTParms[2:], dRRet, callCode, eTList, dRList)
 

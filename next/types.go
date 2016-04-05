@@ -175,6 +175,17 @@ type RversionPkt struct {
 	Version string
 }
 
+type TattachPkt struct {
+	FID uint64
+	AFID uint64
+	Uname string
+	Aname string
+}
+
+type RattachPkt struct {
+	QID QID
+}
+
 type RerrorPkt struct {
 	error string
 }
@@ -223,4 +234,5 @@ type Server struct {
 type NineServer interface {
 	Dispatch(*bytes.Buffer, MType) error
 	Rversion(uint32, string) (uint32, string, error)
+	Rattach(uint64, uint64, string, string) (QID, error)
 }
