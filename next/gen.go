@@ -23,6 +23,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -31,6 +32,14 @@ import (
 	"github.com/rminnich/ninep/next"
 )
 
+type emitter struct {
+	parms *bytes.Buffer
+	list *bytes.Buffer
+ 	code *bytes.Buffer
+	ret *bytes.Buffer
+	comma string
+	inBWrite bool
+}
 var (
 	packages = []struct {
 		c  interface{}
@@ -43,11 +52,9 @@ var (
 		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
-	inBWrite bool = true
-	comma string
 )
 
-func code(k reflect.Kind, f reflect.StructField, Mn, Un string) (string, string, string, string, error) {
+func code(em *emitter, k reflect.Kind, f reflect.StructField, Mn, Un string) (string, string, string, string, error) {
 	var eCode, dCode, eParms, dRet string
 	var err error
 		switch {
@@ -70,9 +77,9 @@ func code(k reflect.Kind, f reflect.StructField, Mn, Un string) (string, string,
 			dCode += fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un)
 		case k == reflect.String:
 			eCode += fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn)
-			if inBWrite {
+			if em.inBWrite {
 				eCode += "\t})\n"
-				inBWrite = false
+				em.inBWrite = false
 			}
 			eCode += fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn)
 			dCode += "\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n"
@@ -84,7 +91,7 @@ func code(k reflect.Kind, f reflect.StructField, Mn, Un string) (string, string,
 		// There are very few types in 9p.
 		case f.Name == "QID":
 			eParms += fmt.Sprintf(", %v QID", Mn)
-			dRet += fmt.Sprintf("%v%v QID", comma, Un)
+			dRet += fmt.Sprintf("%v%v QID", em.comma, Un)
 			eCode += fmt.Sprintf("\tuint8(%v.Type),", Mn)
 
 			eCode += fmt.Sprintf("\tuint8(%v.Version),uint8(%v.Version>>8),", Mn, Mn)
@@ -113,13 +120,13 @@ func code(k reflect.Kind, f reflect.StructField, Mn, Un string) (string, string,
 }
 
 // For a given message type, gen generates declarations, return values, lists of variables, and code.
-func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, dList string, err error) {
+func gen(em *emitter, v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, dList string, err error) {
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
 	eCode = "\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n"
 	dCode = "\tvar u16 [2]byte\n\t"
-	inBWrite = true
-	comma = ""
+	em.inBWrite = true
+	em.comma = ""
 	// Unmarshal will always return the tag in addition to everything else.
 	dRet = ""
 
@@ -127,25 +134,25 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 	dCode += fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n")
 	t := reflect.TypeOf(v)
 	for i := 0; i < t.NumField(); i++ {
-		if !inBWrite {
+		if !em.inBWrite {
 			eCode += "\tb.Write([]byte{"
-			inBWrite = true
+			em.inBWrite = true
 		}
 		f := t.Field(i)
 		Mn := "M" + prefix + f.Name
 		Un := "U" + prefix + f.Name
-		eList += comma + Mn
-		dList += comma + Un
+		eList += em.comma + Mn
+		dList += em.comma + Un
 
 		k := f.Type.Kind()
 		switch k {
 		case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
 			eParms += fmt.Sprintf(", %v %v", Mn, f.Type.Kind())
-			dRet += fmt.Sprintf("%v%v %v", comma, Un, f.Type.Kind())
+			dRet += fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.Kind())
 		}
 
 		
-		e, d, ep, dr, er := code(k, f, Mn, Un)
+		e, d, ep, dr, er := code(em, k, f, Mn, Un)
 		if er != nil {
 			err = er
 			return
@@ -154,11 +161,11 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 		dCode += d
 		eParms += ep
 		dRet += dr
-		comma = ", "
+		em.comma = ", "
 	}
-	if inBWrite {
+	if em.inBWrite {
 		eCode += "\t})\n"
-		inBWrite = false
+		em.inBWrite = false
 	}
 	eCode += "\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n"
 
@@ -167,14 +174,16 @@ func gen(v interface{}, msg, prefix string) (eParms, eCode, eList, dRet, dCode, 
 
 // genMsgCoder tries to generate an encoder and a decoder and caller for a given message pair.
 func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call, reply, dispatch string, err error) {
+	em := &emitter{inBWrite: true,}
+	dm := &emitter{inBWrite: true,}
 	tpacket := tmsg + "Pkt"
-	eTParms, eTCode, eTList, dTRet, dTCode, _, err := gen(tv, tmsg, tmsg[0:1])
+	eTParms, eTCode, eTList, dTRet, dTCode, _, err := gen(em, tv, tmsg, tmsg[0:1])
 	if err != nil {
 		return
 	}
 
 	rpacket := rmsg + "Pkt"
-	eRParms, eRCode, _, dRRet, dRCode, dRList, err := gen(rv, rmsg, rmsg[0:1])
+	eRParms, eRCode, _, dRRet, dRCode, dRList, err := gen(dm, rv, rmsg, rmsg[0:1])
 	if err != nil {
 		return
 	}
