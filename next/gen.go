@@ -33,10 +33,15 @@ import (
 )
 
 type emitter struct {
-	parms *bytes.Buffer
-	list *bytes.Buffer
- 	code *bytes.Buffer
-	ret *bytes.Buffer
+	// Encoders always return []byte
+	eparms *bytes.Buffer
+	elist *bytes.Buffer
+ 	ecode *bytes.Buffer
+
+	// Decoders always take []byte as parms.
+	dlist *bytes.Buffer
+ 	dcode *bytes.Buffer
+	dret *bytes.Buffer
 	comma string
 	inBWrite bool
 }
