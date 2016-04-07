@@ -56,7 +56,7 @@ var (
 		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
-		//		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
+//		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
 )
 
@@ -126,14 +126,6 @@ func code(em *emitter, k reflect.Kind, f reflect.StructField, Mn, Un string) err
 
 // For a given message type, gen generates declarations, return values, lists of variables, and code.
 func gen(em *emitter, v interface{}, msg, prefix string) error {
-	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
-	// The tag type, and the tag itself.
-	em.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n")
-	em.UCode.WriteString("\tvar u16 [2]byte\n\t")
-	em.inBWrite = true
-	// Unmarshal will always return the tag in addition to everything else.
-	em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
 	t := reflect.TypeOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		if !em.inBWrite {
@@ -172,12 +164,28 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 	em := &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
 	dm := &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
 	tpacket := tmsg + "Pkt"
+	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
+	// The tag type, and the tag itself.
+	em.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + tmsg + "),\n\tbyte(t), byte(t>>8),\n")
+	em.UCode.WriteString("\tvar u16 [2]byte\n\t")
+	em.inBWrite = true
+	// Unmarshal will always return the tag in addition to everything else.
+	em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
 	err = gen(em, tv, tmsg, tmsg[0:1])
 	if err != nil {
 		return
 	}
 
 	rpacket := rmsg + "Pkt"
+	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
+	// The tag type, and the tag itself.
+	dm.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + rmsg + "),\n\tbyte(t), byte(t>>8),\n")
+	dm.UCode.WriteString("\tvar u16 [2]byte\n\t")
+	dm.inBWrite = true
+	// Unmarshal will always return the tag in addition to everything else.
+	dm.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+	dm.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
 	if err = gen(dm, rv, rmsg, rmsg[0:1]); err != nil {
 		return
 	}
