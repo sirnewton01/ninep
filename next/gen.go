@@ -131,9 +131,7 @@ func gen(em *emitter, v interface{}, msg, prefix string) error {
 	em.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + msg + "),\n\tbyte(t), byte(t>>8),\n")
 	em.UCode.WriteString("\tvar u16 [2]byte\n\t")
 	em.inBWrite = true
-	em.comma = ""
 	// Unmarshal will always return the tag in addition to everything else.
-
 	em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
 	t := reflect.TypeOf(v)
@@ -171,8 +169,8 @@ func gen(em *emitter, v interface{}, msg, prefix string) error {
 
 // genMsgCoder tries to generate an encoder and a decoder and caller for a given message pair.
 func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, dec, call, reply, dispatch string, err error) {
-	em := &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", true}
-	dm := &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", true}
+	em := &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
+	dm := &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
 	tpacket := tmsg + "Pkt"
 	err = gen(em, tv, tmsg, tmsg[0:1])
 	if err != nil {
