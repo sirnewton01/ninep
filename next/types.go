@@ -198,7 +198,7 @@ type RwalkPkt struct {
 }
 
 type RerrorPkt struct {
-	error string
+	Error string
 }
 
 type RPCCall struct {
