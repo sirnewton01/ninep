@@ -64,7 +64,6 @@ var (
 func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
 	t := reflect.TypeOf(v)
 	y := reflect.ValueOf(v)
-fmt.Printf("GEN: t is %v, y is %v\n", t, y)
 	for i := 0; i < t.NumField(); i++ {
 		if !em.inBWrite {
 			em.MCode.WriteString("\tb.Write([]byte{")
@@ -78,11 +77,14 @@ fmt.Printf("GEN: t is %v, y is %v\n", t, y)
 			em.MList.WriteString(em.comma + Mn)
 			em.UList.WriteString(em.comma + Un)
 
-		//switch k {
-		//case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
+		switch k {
+		case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
 			em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.Kind()))
 			em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.Kind()))
-		//}
+		default:
+			em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Name))
+			em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Name))
+		}
 		} else {
 			Mn = "M" + prefix + f.Name
 			Un = "U" + prefix + f.Name
