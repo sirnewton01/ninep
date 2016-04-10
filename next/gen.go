@@ -61,19 +61,14 @@ var (
 )
 
 // For a given message type, gen generates declarations, return values, lists of variables, and code.
-func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
+func decl(em *emitter, v interface{}, msg, prefix string) {
 	y := reflect.ValueOf(v)
 	t := y.Type()
 	for i := 0; i < t.NumField(); i++ {
-		if !em.inBWrite {
-			em.MCode.WriteString("\tb.Write([]byte{")
-			em.inBWrite = true
-		}
 		f := t.Field(i)
 		k := f.Type.Kind()
 		Mn := "M" + prefix + f.Name
 		Un := "U" + prefix + f.Name
-		if top {
 			em.MList.WriteString(em.comma + Mn)
 			em.UList.WriteString(em.comma + Un)
 
@@ -85,33 +80,46 @@ func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
 				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Name))
 				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Name))
 			}
-		} else {
-			Mn = "M" + prefix + f.Name
-			Un = "U" + prefix + f.Name
+			em.comma = ", "
+	}
+}
+
+func num(em *emitter, l int, Mn, Un string) {
+	em.UCode.WriteString(fmt.Sprintf("{\n\tvar u [%d]byte\n", l))
+	for i:= 0; i < l; i++ {
+		if !em.inBWrite {
+			em.MCode.WriteString("\tb.Write([]byte{")
+			em.inBWrite = true
 		}
+		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v>>%v),\n", Mn, i*8))
+		em.UCode.WriteString("\tif _, err = b.Read(u[:1]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint8: need 1, have %d\", b.Len())\n\treturn\n\t}\n")
+		em.UCode.WriteString(fmt.Sprintf("\t%v |= uint%d(u[%d]<<%v)\n", Un, l*8, i, i*8))
+	}
+	em.UCode.WriteString("\n\t}\n")
+}
+// For a given message type, gen generates declarations, return values, lists of variables, and code.
+func genStruct(em *emitter, v interface{}, msg, prefix string) error {
+	y := reflect.ValueOf(v)
+	t := y.Type()
+	for i := 0; i < t.NumField(); i++ {
+		if !em.inBWrite {
+			em.MCode.WriteString("\tb.Write([]byte{")
+			em.inBWrite = true
+		}
+		f := t.Field(i)
+		k := f.Type.Kind()
+		Mn := "M" + prefix + f.Name
+		Un := "U" + prefix + f.Name
 
 		switch {
 		case k == reflect.Uint64:
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v)>>32,uint8(%v>>40),", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>48),uint8(%v>>56),\n", Mn, Mn))
-			em.UCode.WriteString("\t{\n\tvar u64 [8]byte\n\tif _, err = b.Read(u64[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint64: need 8, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint64(u64[0])<<0|uint64(u64[1])<<8|uint64(u64[2])<<16|uint64(u64[3])<<24\n", Un))
-			em.UCode.WriteString(fmt.Sprintf("\t%v |= uint64(u64[0])<<32|uint64(u64[1])<<40|uint64(u64[2])<<48|uint64(u64[3])<<56\n}\n", Un))
+			num(em, 8, Mn, Un)
 		case k == reflect.Uint32:
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
-			em.UCode.WriteString("\t{\n\tvar u32 [4]byte\n\tif _, err = b.Read(u32[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
+			num(em, 4, Mn, Un)
 		case k == reflect.Uint16:
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn))
-			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un))
+			num(em, 2, Mn, Un)
 		case k == reflect.Uint8:
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),\n", Mn))
-			em.UCode.WriteString("\tif _, err = b.Read(u16[:1]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint8: need 1, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint8(u16[0])\n", Un))
+			num(em, 1, Mn, Un)
 		case k == reflect.String:
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
 			if em.inBWrite {
@@ -125,7 +133,7 @@ func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
 			em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
 
 		case k == reflect.Struct:
-			if err := gen(em, y.Field(i).Interface(), false, msg, prefix+f.Name+"."); err != nil {
+			if err := genStruct(em, y.Field(i).Interface(), msg, prefix+f.Name+"."); err != nil {
 				return err
 			}
 		// 9p encodes data length and wqid and arrays with different length lengths. Oh well.
@@ -152,8 +160,6 @@ func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
 		default:
 			return fmt.Errorf("Can't encode k is '%v', '%v' f.Type '%v', f.Name %v", k, f, f.Type, f.Name)
 		}
-
-		em.comma = ", "
 	}
 	if em.inBWrite {
 		em.MCode.WriteString("\t})\n")
@@ -175,7 +181,8 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 	// Unmarshal will always return the tag in addition to everything else.
 	em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
-	err = gen(em, tv, true, tmsg, tmsg[0:1])
+	decl(em, tv, tmsg, tmsg[0:1])
+	err = genStruct(em, tv, tmsg, tmsg[0:1])
 	if err != nil {
 		return
 	}
@@ -190,7 +197,8 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 	// Unmarshal will always return the tag in addition to everything else.
 	dm.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 	dm.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
-	if err = gen(dm, rv, true, rmsg, rmsg[0:1]); err != nil {
+	decl(dm, rv, rmsg, rmsg[0:1])
+	if err = genStruct(dm, rv, rmsg, rmsg[0:1]); err != nil {
 		return
 	}
 
