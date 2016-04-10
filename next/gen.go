@@ -62,8 +62,8 @@ var (
 
 // For a given message type, gen generates declarations, return values, lists of variables, and code.
 func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
-	t := reflect.TypeOf(v)
 	y := reflect.ValueOf(v)
+	t := y.Type()
 	for i := 0; i < t.NumField(); i++ {
 		if !em.inBWrite {
 			em.MCode.WriteString("\tb.Write([]byte{")
@@ -77,60 +77,81 @@ func gen(em *emitter, v interface{}, top bool, msg, prefix string) error {
 			em.MList.WriteString(em.comma + Mn)
 			em.UList.WriteString(em.comma + Un)
 
-		switch k {
-		case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
-			em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.Kind()))
-			em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.Kind()))
-		default:
-			em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Name))
-			em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Name))
-		}
+			switch k {
+			case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
+				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.Kind()))
+				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.Kind()))
+			default:
+				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Name))
+				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Name))
+			}
 		} else {
 			Mn = "M" + prefix + f.Name
 			Un = "U" + prefix + f.Name
 		}
 
-	switch {
-	case k == reflect.Uint64:
-		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
-		em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
-		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v)>>32,uint8(%v>>40),", Mn, Mn))
-		em.MCode.WriteString(fmt.Sprintf("uint8(%v>>48),uint8(%v>>56),\n", Mn, Mn))
-		em.UCode.WriteString("\t{\n\tvar u64 [8]byte\n\tif _, err = b.Read(u64[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint64: need 8, have %d\", b.Len())\n\treturn\n\t}\n")
-		em.UCode.WriteString(fmt.Sprintf("\t%v = uint64(u64[0])<<0|uint64(u64[1])<<8|uint64(u64[2])<<16|uint64(u64[3])<<24\n", Un))
-		em.UCode.WriteString(fmt.Sprintf("\t%v |= uint64(u64[0])<<32|uint64(u64[1])<<40|uint64(u64[2])<<48|uint64(u64[3])<<56\n}\n", Un))
-	case k == reflect.Uint32:
-		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
-		em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
-		em.UCode.WriteString("\t{\n\tvar u32 [4]byte\n\tif _, err = b.Read(u32[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\treturn\n\t}\n")
-		em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
-	case k == reflect.Uint16:
-		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn))
-		em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-		em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un))
-	case k == reflect.Uint8:
-		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),\n", Mn))
-		em.UCode.WriteString("\tif _, err = b.Read(u16[:1]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint8: need 1, have %d\", b.Len())\n\treturn\n\t}\n")
-		em.UCode.WriteString(fmt.Sprintf("\t%v = uint8(u16[0])\n", Un))
-	case k == reflect.String:
-		em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
-		if em.inBWrite {
-			em.MCode.WriteString("\t})\n")
-			em.inBWrite = false
-		}
-		em.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn))
-		em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-		em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u16[0])|int(u16[1]<<8)\n"))
-		em.UCode.WriteString("\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n")
-		em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
+		switch {
+		case k == reflect.Uint64:
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
+			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v)>>32,uint8(%v>>40),", Mn, Mn))
+			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>48),uint8(%v>>56),\n", Mn, Mn))
+			em.UCode.WriteString("\t{\n\tvar u64 [8]byte\n\tif _, err = b.Read(u64[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint64: need 8, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint64(u64[0])<<0|uint64(u64[1])<<8|uint64(u64[2])<<16|uint64(u64[3])<<24\n", Un))
+			em.UCode.WriteString(fmt.Sprintf("\t%v |= uint64(u64[0])<<32|uint64(u64[1])<<40|uint64(u64[2])<<48|uint64(u64[3])<<56\n}\n", Un))
+		case k == reflect.Uint32:
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
+			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
+			em.UCode.WriteString("\t{\n\tvar u32 [4]byte\n\tif _, err = b.Read(u32[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
+		case k == reflect.Uint16:
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn))
+			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un))
+		case k == reflect.Uint8:
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),\n", Mn))
+			em.UCode.WriteString("\tif _, err = b.Read(u16[:1]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint8: need 1, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint8(u16[0])\n", Un))
+		case k == reflect.String:
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
+			if em.inBWrite {
+				em.MCode.WriteString("\t})\n")
+				em.inBWrite = false
+			}
+			em.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn))
+			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u16[0])|int(u16[1]<<8)\n"))
+			em.UCode.WriteString("\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
 
-	case k == reflect.Struct:
-			if err := gen(em, y.Field(i).Interface(), false, msg, prefix +f.Name+ "."); err != nil {
+		case k == reflect.Struct:
+			if err := gen(em, y.Field(i).Interface(), false, msg, prefix+f.Name+"."); err != nil {
 				return err
 			}
-	default:
-		return fmt.Errorf("Can't encode %v f.Type %v", f, f.Type)
-	}
+		// 9p encodes data length and wqid and arrays with different length lengths. Oh well.
+		// TODO: clean this mess up.
+		case k == reflect.Slice:
+			fmt.Printf("SLICE!:")
+			// encode. Unlike all other cases we have to generate an encoder for a variable array.
+			switch f.Type.String() {
+			case "[]byte":
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
+			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
+			em.UCode.WriteString("\t{\n\tvar u32 [4]byte\n\tif _, err = b.Read(u32[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for uint32: need 4, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
+			default:
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn))
+			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un))
+			}
+			// length set up, now it's a loop.
+			// This can really be done MUCH BETTER ...
+			fmt.Printf("'%s' '%v\n'", f.Type.String(), y.Field(i).Interface())
+		case k == reflect.Array:
+			fmt.Printf("array? really?\n", f.Name)
+		default:
+			return fmt.Errorf("Can't encode k is '%v', '%v' f.Type '%v', f.Name %v", k, f, f.Type, f.Name)
+		}
 
 		em.comma = ", "
 	}
@@ -175,8 +196,7 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 
 	dm.MCode.WriteString("\tl := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n")
 
-
-fmt.Printf("EM :%v:\nDM:%v:\n", em, dm)
+	fmt.Printf("EM :%v:\nDM:%v:\n", em, dm)
 	enc = fmt.Sprintf("func Marshal%v (b *bytes.Buffer, t Tag%v) {\n%v\n\treturn\n}\n", tpacket, em.MParms, em.MCode)
 	dec = fmt.Sprintf("func Unmarshal%v (b *bytes.Buffer) (%v, t Tag, err error) {\n%v\n\treturn\n}\n", tpacket, em.URet, em.UCode)
 	if rmsg == "Rerror" {
