@@ -85,17 +85,16 @@ func decl(em *emitter, v interface{}, msg, prefix string) {
 }
 
 func emitNum(em *emitter, l int, Mn, Un string) {
-	em.UCode.WriteString(fmt.Sprintf("{\n\tvar u [%d]byte\n", l))
+	em.UCode.WriteString(fmt.Sprintf("\tif _, err = b.Read(u[:%v]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint%v: need %v, have %%d\", b.Len())\n\treturn\n\t}\n", l, l*8, l))
 	for i:= 0; i < l; i++ {
 		if !em.inBWrite {
 			em.MCode.WriteString("\tb.Write([]byte{")
 			em.inBWrite = true
 		}
+		// TODO: do straight inline for as many bytes as are needed. This is inefficient.
 		em.MCode.WriteString(fmt.Sprintf("\tuint8(%v>>%v),\n", Mn, i*8))
-		em.UCode.WriteString("\tif _, err = b.Read(u[:1]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint8: need 1, have %d\", b.Len())\n\treturn\n\t}\n")
 		em.UCode.WriteString(fmt.Sprintf("\t%v |= uint%d(u[%d]<<%v)\n", Un, l*8, i, i*8))
 	}
-	em.UCode.WriteString("\n\t}\n")
 }
 func emitString(em *emitter, Mn, Un string) {
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
@@ -104,8 +103,8 @@ func emitString(em *emitter, Mn, Un string) {
 				em.inBWrite = false
 			}
 			em.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn))
-			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u16[0])|int(u16[1]<<8)\n"))
+			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u[0])|int(u[1]<<8)\n"))
 			em.UCode.WriteString("\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n")
 			em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
 }
@@ -152,8 +151,8 @@ func genStruct(em *emitter, v interface{}, msg, prefix string) error {
 			em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
 			default:
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),\n", Mn, Mn))
-			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u16[0])|uint16(u16[1]<<8)\n", Un))
+			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u[0])|uint16(u[1]<<8)\n", Un))
 			}
 			// length set up, now it's a loop.
 			// This can really be done MUCH BETTER ...
@@ -179,11 +178,11 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
 	em.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + tmsg + "),\n\tbyte(t), byte(t>>8),\n")
-	em.UCode.WriteString("\tvar u16 [2]byte\n\t")
+	em.UCode.WriteString("\tvar u [8]byte\n\t")
 	em.inBWrite = true
 	// Unmarshal will always return the tag in addition to everything else.
-	em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
+	em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u[0])|uint16(u[1])<<8)\n"))
 	decl(em, tv, tmsg, tmsg[0:1])
 	err = genStruct(em, tv, tmsg, tmsg[0:1])
 	if err != nil {
@@ -195,11 +194,11 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
 	dm.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + rmsg + "),\n\tbyte(t), byte(t>>8),\n")
-	dm.UCode.WriteString("\tvar u16 [2]byte\n\t")
+	dm.UCode.WriteString("\tvar u [8]byte\n\t")
 	dm.inBWrite = true
 	// Unmarshal will always return the tag in addition to everything else.
-	dm.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-	dm.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u16[0])|uint16(u16[1])<<8)\n"))
+	dm.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+	dm.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u[0])|uint16(u[1])<<8)\n"))
 	decl(dm, rv, rmsg, rmsg[0:1])
 	if err = genStruct(dm, rv, rmsg, rmsg[0:1]); err != nil {
 		return
@@ -288,12 +287,12 @@ switch(t) {
 	out := "package next\n\nimport (\n\t\"bytes\"\n\t\"fmt\"\n\t\"log\"\n)\n" + enc + "\n" + dec + "\n\n" + call + "\n\n" + reply + "\n\n" + dispatch
 	out += `
 func ServerError (b *bytes.Buffer, s string) {
-	var u16 [2]byte
+	var u [8]byte
 	// This can't really happen. 
-	if _, err := b.Read(u16[:]); err != nil {
+	if _, err := b.Read(u[:2]); err != nil {
 		return
 	}
-	t := Tag(uint16(u16[0])|uint16(u16[1])<<8)
+	t := Tag(uint16(u[0])|uint16(u[1])<<8)
 	MarshalRerrorPkt (b, t, s)
 }
 `
