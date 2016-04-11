@@ -84,7 +84,7 @@ func decl(em *emitter, v interface{}, msg, prefix string) {
 	}
 }
 
-func num(em *emitter, l int, Mn, Un string) {
+func emitNum(em *emitter, l int, Mn, Un string) {
 	em.UCode.WriteString(fmt.Sprintf("{\n\tvar u [%d]byte\n", l))
 	for i:= 0; i < l; i++ {
 		if !em.inBWrite {
@@ -97,6 +97,19 @@ func num(em *emitter, l int, Mn, Un string) {
 	}
 	em.UCode.WriteString("\n\t}\n")
 }
+func emitString(em *emitter, Mn, Un string) {
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
+			if em.inBWrite {
+				em.MCode.WriteString("\t})\n")
+				em.inBWrite = false
+			}
+			em.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn))
+			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u16[0])|int(u16[1]<<8)\n"))
+			em.UCode.WriteString("\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
+}
+
 // For a given message type, gen generates declarations, return values, lists of variables, and code.
 func genStruct(em *emitter, v interface{}, msg, prefix string) error {
 	y := reflect.ValueOf(v)
@@ -113,25 +126,15 @@ func genStruct(em *emitter, v interface{}, msg, prefix string) error {
 
 		switch {
 		case k == reflect.Uint64:
-			num(em, 8, Mn, Un)
+			emitNum(em, 8, Mn, Un)
 		case k == reflect.Uint32:
-			num(em, 4, Mn, Un)
+			emitNum(em, 4, Mn, Un)
 		case k == reflect.Uint16:
-			num(em, 2, Mn, Un)
+			emitNum(em, 2, Mn, Un)
 		case k == reflect.Uint8:
-			num(em, 1, Mn, Un)
+			emitNum(em, 1, Mn, Un)
 		case k == reflect.String:
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
-			if em.inBWrite {
-				em.MCode.WriteString("\t})\n")
-				em.inBWrite = false
-			}
-			em.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn))
-			em.UCode.WriteString("\tif _, err = b.Read(u16[:]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u16[0])|int(u16[1]<<8)\n"))
-			em.UCode.WriteString("\tif b.Len() < l  {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %d, have %d\", l, b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
-
+			emitString(em, Mn, Un)
 		case k == reflect.Struct:
 			if err := genStruct(em, y.Field(i).Interface(), msg, prefix+f.Name+"."); err != nil {
 				return err
