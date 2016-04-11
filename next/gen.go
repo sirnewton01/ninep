@@ -144,6 +144,7 @@ func genStruct(em *emitter, v interface{}, msg, prefix string) error {
 			fmt.Printf("SLICE!:")
 			// encode. Unlike all other cases we have to generate an encoder for a variable array.
 			switch f.Type.String() {
+			// []byte in 9p uses int32 for length, unlike others.
 			case "[]byte":
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(%v),uint8(%v>>8),", Mn, Mn))
 			em.MCode.WriteString(fmt.Sprintf("uint8(%v>>16),uint8(%v>>24),\n", Mn, Mn))
@@ -178,11 +179,14 @@ func genMsgRPC(tv interface{}, tmsg string, rv interface{}, rmsg string) (enc, d
 	// Add the encoding boiler plate: 4 bytes of size to be filled in later,
 	// The tag type, and the tag itself.
 	em.MCode.WriteString("\tb.Reset()\n\tb.Write([]byte{0,0,0,0, uint8(" + tmsg + "),\n\tbyte(t), byte(t>>8),\n")
-	em.UCode.WriteString("\tvar u [8]byte\n\t")
+	// Why generate i here? So we have a handy variable big enough to hold everything.
+	// Why use it for the tag? So we ensure it's used at least once. Doing this saves a bunch of
+	// foolishness.
+	em.UCode.WriteString("\tvar u [8]byte\n\tvar i uint64\n\t")
 	em.inBWrite = true
 	// Unmarshal will always return the tag in addition to everything else.
 	em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\terr = fmt.Errorf(\"pkt too short for tag: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-	em.UCode.WriteString(fmt.Sprintf("\tt = Tag(uint16(u[0])|uint16(u[1])<<8)\n"))
+	em.UCode.WriteString(fmt.Sprintf("\ti = uint64(uint16(u[0])|uint16(u[1])<<8)\n\tt = Tag(i)\n"))
 	decl(em, tv, tmsg, tmsg[0:1])
 	err = genStruct(em, tv, tmsg, tmsg[0:1])
 	if err != nil {
