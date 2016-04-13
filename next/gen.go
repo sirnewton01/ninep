@@ -77,8 +77,8 @@ func decl(em *emitter, v interface{}, msg, prefix string) {
 				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.Kind()))
 				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.Kind()))
 			default:
-				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Name))
-				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Name))
+				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.String()))
+				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.String()))
 			}
 			em.comma = ", "
 	}
@@ -111,14 +111,17 @@ func emitString(em *emitter, Mn, Un string) {
 			em.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", Un))
 }
 
-func emitSlice(em *emitter, Mn, Un string) {
+func emitQIDSlice(em *emitter, Mn, Un string) {
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
-			em.MCode.WriteString("\t}\n")
 			
 			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u[0])|uint16(u[1]<<8)\n", Un))
+			em.UCode.WriteString("\ti = uint64(u[0])|uint64(u[1]<<8)\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, i\n", Un))
 
+			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
+			em.UCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Un))
+				genStruct(em, next.QID{}, Mn, Un)
+			em.MCode.WriteString("\t}\n")
 }
 
 func emitStringSlice(em *emitter, Mn, Un string) {
@@ -126,15 +129,17 @@ func emitStringSlice(em *emitter, Mn, Un string) {
 			em.MCode.WriteString("\tb.Write([]byte{")
 			em.inBWrite = true
 		}
+			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
+			em.UCode.WriteString("\ti = uint64(u[0])|uint64(u[1]<<8)\n")
+			em.UCode.WriteString(fmt.Sprintf("\t%v = make([]string, i)\n", Un))
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),})\n", Mn, Mn))
+
 			em.inBWrite = false
 			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
-			emitString(em, "v", Un)
+			em.UCode.WriteString(fmt.Sprintf("\tfor _, v := range %v {\n", Un))
+			emitString(em, "v", "v")
 			em.MCode.WriteString("\n\t}\n")
-			
-			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u[0])|uint16(u[1]<<8)\n", Un))
-
+			em.UCode.WriteString("\n\t}\n")
 }
 // For a given message type, gen generates declarations, return values, lists of variables, and code.
 // TODO: this is crap. I'm still learning.
@@ -180,8 +185,9 @@ func genStruct(em *emitter, v interface{}, msg, prefix string) error {
 			em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
 			case "[]string":
 				emitStringSlice(em, Mn, Un)
+			case "[]QID":
+				emitQIDSlice(em, Mn, Un)
 			default:
-				emitSlice(em, Mn, Un)
 			}
 			// length set up, now it's a loop.
 			// This can really be done MUCH BETTER ...
