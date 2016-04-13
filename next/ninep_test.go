@@ -51,6 +51,11 @@ func TestEncode(t *testing.T) {
 			[]byte{19, 0, 0, 0, 101, 0xaa, 0x55, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
 			func(b *bytes.Buffer) { MarshalRversionPkt(b, Tag(0x55aa), 8192, "9P2000") },
 		},
+			{
+				"Twalk tag 0 fid 0 newfid 1 to null",
+				[]byte{23, 0, 0, 0, 110, 0xaa, 0x55, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0, 110, 117, 108, 108},
+				func(b *bytes.Buffer) { MarshalTwalkPkt(b, Tag(0x55aa), 0, 1, []string{"null",}) },
+			},
 		/*
 			{
 				"Flush test with tag 1 and oldtag 2",
@@ -81,11 +86,6 @@ func TestEncode(t *testing.T) {
 				[]interface{}{Tattach, Tag(1), FID(48), NOFID, "rminnich", ""},
 				// 20 0 0 0 105 1 0 128 99 207 44 145 115 221 96 0 0 0 0 0]
 				// Rattach tag 1 aqid (60dd73 912ccf63 'd')
-			},
-			{
-				"Twalk tag 0 fid 0 newfid 1 to null",
-				[]byte{23, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0, 110, 117, 108, 108},
-				[]interface{}{Twalk, Tag(0), FID(0), FID(1), NumEntries(1), "null"},
 			},
 			{
 				"Topen tag 0 fid 1 mode 2",
@@ -229,13 +229,13 @@ func (e *echo) Rversion(msize uint32, version string) (uint32, string, error) {
 	return msize, version, nil
 }
 
-func (e *echo) Rattach(uint64, uint64, string, string) (QID, error) {
+func (e *echo) Rattach(uint32, uint32, string, string) (QID, error) {
 	if !e.Versioned {
 		return QID{}, fmt.Errorf("Version must be one first")
 	}
 	return QID{}, nil
 }
-func (e *echo) Rwalk(fid uint64, newfid uint64, paths []string) ([]QID, error) {
+func (e *echo) Rwalk(fid uint32, newfid uint32, paths []string) ([]QID, error) {
 	return []QID{}, nil
 }
 func TestTVersion(t *testing.T) {

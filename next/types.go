@@ -177,8 +177,8 @@ type RversionPkt struct {
 }
 
 type TattachPkt struct {
-	FID   uint64
-	AFID  uint64
+	FID   uint32
+	AFID  uint32
 	Uname string
 	Aname string
 }
@@ -188,8 +188,8 @@ type RattachPkt struct {
 }
 
 type TwalkPkt struct {
-	FID uint64
-	NewFID uint64
+	FID uint32
+	NewFID uint32
 	Paths []string
 }
 
@@ -245,6 +245,6 @@ type Server struct {
 type NineServer interface {
 	Dispatch(*bytes.Buffer, MType) error
 	Rversion(uint32, string) (uint32, string, error)
-	Rattach(uint64, uint64, string, string) (QID, error)
-	Rwalk(uint64, uint64, []string) ([]QID, error)
+	Rattach(uint32, uint32, string, string) (QID, error)
+	Rwalk(uint32, uint32, []string) ([]QID, error)
 }
