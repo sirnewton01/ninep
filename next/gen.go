@@ -56,7 +56,7 @@ var (
 		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
-//		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
+		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
 )
 
@@ -97,11 +97,13 @@ func emitNum(em *emitter, l int, Mn, Un string) {
 	}
 }
 func emitString(em *emitter, Mn, Un string) {
+		if !em.inBWrite {
+			em.MCode.WriteString("\tb.Write([]byte{")
+			em.inBWrite = true
+		}
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
-			if em.inBWrite {
-				em.MCode.WriteString("\t})\n")
-				em.inBWrite = false
-			}
+			em.MCode.WriteString("\t})\n")
+			em.inBWrite = false
 			em.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", Mn))
 			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 			em.UCode.WriteString(fmt.Sprintf("\t{ var l = int(u[0])|int(u[1]<<8)\n"))
@@ -111,7 +113,8 @@ func emitString(em *emitter, Mn, Un string) {
 
 func emitSlice(em *emitter, Mn, Un string) {
 			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("\tfor _, := range %v {\n", Mn))
+			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
+			em.MCode.WriteString("\t}\n")
 			
 			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u[0])|uint16(u[1]<<8)\n", Un))
@@ -119,10 +122,15 @@ func emitSlice(em *emitter, Mn, Un string) {
 }
 
 func emitStringSlice(em *emitter, Mn, Un string) {
-			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", Mn, Mn))
-			em.MCode.WriteString(fmt.Sprintf("\tfor _, := range %v {\n", Mn))
-			emitString(em, Mn, Un)
-			em.MCode.WriteString("\n")
+		if !em.inBWrite {
+			em.MCode.WriteString("\tb.Write([]byte{")
+			em.inBWrite = true
+		}
+			em.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),})\n", Mn, Mn))
+			em.inBWrite = false
+			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
+			emitString(em, "v", Un)
+			em.MCode.WriteString("\n\t}\n")
 			
 			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 			em.UCode.WriteString(fmt.Sprintf("\t%v = uint16(u[0])|uint16(u[1]<<8)\n", Un))
