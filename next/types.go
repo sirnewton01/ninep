@@ -246,4 +246,5 @@ type NineServer interface {
 	Dispatch(*bytes.Buffer, MType) error
 	Rversion(uint32, string) (uint32, string, error)
 	Rattach(uint64, uint64, string, string) (QID, error)
+	Rwalk(uint64, uint64, []string) ([]QID, error)
 }

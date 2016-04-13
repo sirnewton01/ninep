@@ -76,9 +76,20 @@ func decl(em *emitter, v interface{}, msg, prefix string) {
 			case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.String:
 				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.Kind()))
 				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.Kind()))
+			// TODO: fix this better. 
 			default:
+				switch f.Type.String() {
+				case "[]next.QID":
+				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, "[]QID"))
+				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, "[]QID"))
+				case "next.QID":
+				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, "QID"))
+				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, "QID"))
+				default:
+fmt.Printf("NOT where you thougth!\n")
 				em.MParms.WriteString(fmt.Sprintf(", %v %v", Mn, f.Type.String()))
 				em.URet.WriteString(fmt.Sprintf("%v%v %v", em.comma, Un, f.Type.String()))
+				}
 			}
 			em.comma = ", "
 	}
@@ -136,8 +147,8 @@ func emitStringSlice(em *emitter, Mn, Un string) {
 
 			em.inBWrite = false
 			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
-			em.UCode.WriteString(fmt.Sprintf("\tfor _, v := range %v {\n", Un))
-			emitString(em, "v", "v")
+			em.UCode.WriteString(fmt.Sprintf("\tfor v := range %v {\n", Un))
+			emitString(em, "v", Un+"[v]")
 			em.MCode.WriteString("\n\t}\n")
 			em.UCode.WriteString("\n\t}\n")
 }

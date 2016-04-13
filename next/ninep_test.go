@@ -235,7 +235,9 @@ func (e *echo) Rattach(uint64, uint64, string, string) (QID, error) {
 	}
 	return QID{}, nil
 }
-
+func (e *echo) Rwalk(fid uint64, newfid uint64, paths []string) ([]QID, error) {
+	return []QID{}, nil
+}
 func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
