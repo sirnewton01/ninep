@@ -215,8 +215,10 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRversion(b)
 	case Tattach:
 		return e.SrvRattach(b)
+	case Twalk:
+		return e.SrvRwalk(b)
 	}
-	// This has been tested by removed Attach from the switch.
+	// This has been tested by removing Attach from the switch.
 	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
 	return nil
 }
@@ -236,7 +238,8 @@ func (e *echo) Rattach(uint32, uint32, string, string) (QID, error) {
 	return QID{}, nil
 }
 func (e *echo) Rwalk(fid uint32, newfid uint32, paths []string) ([]QID, error) {
-	return []QID{}, nil
+	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
+	return []QID{QID{0,1,2}, QID{6,7,8}}, nil
 }
 func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
@@ -292,5 +295,10 @@ func TestTVersion(t *testing.T) {
 		t.Fatalf("CallTattach: want nil, got %v", err)
 	}
 	t.Logf("Attach is %v", a)
+	w, err := c.CallTwalk(0, 1, []string{"hi", "there"})
+	if err != nil {
+		t.Fatalf("CallTattach: want nil, got %v", err)
+	}
+	t.Logf("Walk is %v", w)
 
 }
