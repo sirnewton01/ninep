@@ -24,6 +24,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"reflect"
 
@@ -59,7 +60,7 @@ type pack struct {
 var (
 	packages = []*pack{
 //		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
+		{c: next.TversionPkt{}, cn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 //		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
@@ -72,8 +73,15 @@ func newCall() *call {
 	return c
 }
 
-func emitInt(n string, s int, e *emitter) {
-	log.Printf("emit %v, %v", n, s)
+func emitInt(n string, l int, e *emitter) {
+	log.Printf("emit %v, %v", n, l)
+	for i:= 0; i < l; i++ {
+		if !e.inBWrite {
+			e.MCode.WriteString("\tb.Write([]byte{")
+			e.inBWrite = true
+		}
+		e.MCode.WriteString(fmt.Sprintf("\tuint8(%v>>%v),\n", n, i*8))
+	}
 }
 
 func genEncodeStruct(v interface{}, n string, e *emitter) error {
@@ -81,9 +89,9 @@ func genEncodeStruct(v interface{}, n string, e *emitter) error {
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		fn := t.Type().Field(i).Name
 		log.Printf("genEncodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
-		tn := f.Type().Name()
-		genEncodeData(f.Interface(), n + "." + tn, e)
+		genEncodeData(f.Interface(), n + "." + fn, e)
 	}
 	return nil
 }
