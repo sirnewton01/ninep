@@ -58,8 +58,8 @@ type pack struct {
 
 var (
 	packages = []*pack{
-		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-//		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
+//		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
+		{c: next.TversionPkt{}, cn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 //		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
@@ -72,14 +72,30 @@ func newCall() *call {
 	return c
 }
 
-func genStruct(v interface{}, e *emitter) error {
+func emitInt(n string, s int, e *emitter) {
+	log.Printf("emit %v, %v", n, s)
 }
 
-func genData(v interface{}, e *emitter) error {
+func genEncodeStruct(v interface{}, n string, e *emitter) error {
+	log.Printf("genEncodeStruct(%T, %v, %v)", v, n, e)
+	t := reflect.ValueOf(v)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		log.Printf("genEncodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
+		tn := f.Type().Name()
+		genEncodeData(f.Interface(), n + "." + tn, e)
+	}
+	return nil
+}
+
+func genEncodeData(v interface{}, n string, e *emitter) error {
+	log.Printf("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
+	case reflect.Uint16:
+		emitInt(n, 2, e)
 	case reflect.Struct:
-		log.Printf("struct")
+		return genEncodeStruct(v, n, e)
 		default:
 			log.Printf("Can't handle type %v", s)
 	}
@@ -89,7 +105,7 @@ func genData(v interface{}, e *emitter) error {
 // because the 9p encoding is so simple.
 func genMsgRPC(p *pack) (*call, error) {
 	c := newCall()
-	err := genData(p.c, c.T)
+	err := genEncodeData(p.c, p.cn, c.T)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}

@@ -123,6 +123,7 @@ type (
 	NumEntries uint16
 	Tag        uint16
 	FID        uint32
+	MaxSize   uint16
 	Count      int32
 	Perm       int32
 	Offset     uint64
@@ -167,7 +168,7 @@ type Dir struct {
 // put struct members.
 
 type TversionPkt struct {
-	Msize   uint32
+	Msize   MaxSize
 	Version string
 }
 
