@@ -191,6 +191,24 @@ func genParms(v interface{}, n string, e *emitter) error {
 	return nil
 }
 
+// genRets writes the rets for declarations (name and type)
+// a list of names
+func genRets(v interface{}, n string, e *emitter) error {
+	comma := ""
+	t := reflect.ValueOf(v)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		fn := t.Type().Field(i).Name
+		e.UList.WriteString(comma + fn)
+		e.URet.WriteString(comma + fn + " " + f.Type().Name())
+		comma = ", "
+	}
+	e.UList.WriteString(comma + "error")
+	e.URet.WriteString(comma + "err error")
+
+	return nil
+}
+
 // genMsgRPC generates the call and reply declarations and marshalers. We don't think of encoders as too separate
 // because the 9p encoding is so simple.
 func genMsgRPC(p *pack) (*call, error) {
@@ -211,7 +229,14 @@ func genMsgRPC(p *pack) (*call, error) {
 	if err := genParms(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
+
+	if err := genRets(p.r, p.rn, c.R); err != nil {
+		log.Fatalf("%v", err)
+	}
+
 	log.Print("e %v d %v", c.T, c.R)
+
+	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
 	return nil, nil
 
 }
