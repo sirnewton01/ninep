@@ -84,6 +84,18 @@ func emitInt(n string, l int, e *emitter) {
 	}
 }
 
+// TODO: templates.
+func emitString(n string, e *emitter) {
+	if !e.inBWrite {
+		e.MCode.WriteString("\tb.Write([]byte{")
+		e.inBWrite = true
+	}
+	e.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n))
+	e.MCode.WriteString("\t})\n")
+	e.inBWrite = false
+	e.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", n))
+}
+
 func genEncodeStruct(v interface{}, n string, e *emitter) error {
 	log.Printf("genEncodeStruct(%T, %v, %v)", v, n, e)
 	t := reflect.ValueOf(v)
@@ -102,6 +114,8 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 	switch s {
 	case reflect.Uint16:
 		emitInt(n, 2, e)
+	case reflect.String:
+		emitString(n, e)
 	case reflect.Struct:
 		return genEncodeStruct(v, n, e)
 		default:
@@ -117,6 +131,7 @@ func genMsgRPC(p *pack) (*call, error) {
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
+	log.Print("e %v", c.T)
 	return nil, nil
 
 }
