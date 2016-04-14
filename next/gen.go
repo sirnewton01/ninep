@@ -127,12 +127,15 @@ func emitQIDSlice(em *emitter, Mn, Un string) {
 			
 			em.UCode.WriteString("\tif _, err = b.Read(u[:2]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint16: need 2, have %d\", b.Len())\n\treturn\n\t}\n")
 			em.UCode.WriteString("\ti = uint64(u[0])|uint64(u[1]<<8)\n")
-			em.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, i\n", Un))
+			em.MCode.WriteString("\t})\n")
+			em.inBWrite = false
+			em.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, i)\n", Un))
 
 			em.MCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Mn))
-			em.UCode.WriteString(fmt.Sprintf("\tfor _,v := range %v {\n", Un))
-				genStruct(em, next.QID{}, Mn, Un)
+			em.UCode.WriteString(fmt.Sprintf("\tfor i := range %v {\n", Un))
+				genStruct(em, next.QID{}, Mn, Un+"[i].")
 			em.MCode.WriteString("\t}\n")
+			em.UCode.WriteString("\t}\n")
 }
 
 func emitStringSlice(em *emitter, Mn, Un string) {
@@ -196,7 +199,7 @@ func genStruct(em *emitter, v interface{}, msg, prefix string) error {
 			em.UCode.WriteString(fmt.Sprintf("\t%v = uint32(u32[0])<<0|uint32(u32[1])<<8|uint32(u32[2])<<16|uint32(u32[3])<<24\n}\n", Un))
 			case "[]string":
 				emitStringSlice(em, Mn, Un)
-			case "[]QID":
+			case "[]next.QID":
 				emitQIDSlice(em, Mn, Un)
 			default:
 			}
