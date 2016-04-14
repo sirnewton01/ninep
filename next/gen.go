@@ -175,6 +175,22 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 	}
 	return nil
 }
+
+// genParms writes the parameters for declarations (name and type)
+// a list of names (for calling the encoder)
+func genParms(v interface{}, n string, e *emitter) error {
+	comma := ""
+	t := reflect.ValueOf(v)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		fn := t.Type().Field(i).Name
+		e.MList.WriteString(comma + fn)
+		e.MParms.WriteString(comma + fn + " " + f.Type().Name())
+		comma = ", "
+	}
+	return nil
+}
+
 // genMsgRPC generates the call and reply declarations and marshalers. We don't think of encoders as too separate
 // because the 9p encoding is so simple.
 func genMsgRPC(p *pack) (*call, error) {
@@ -185,7 +201,14 @@ func genMsgRPC(p *pack) (*call, error) {
 	if err := genEncodeData(p.r, p.rn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
+	if err := genDecodeData(p.t, p.tn, c.T); err != nil {
+		log.Fatalf("%v", err)
+	}
 	if err := genDecodeData(p.r, p.rn, c.R); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	if err := genParms(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
 	log.Print("e %v d %v", c.T, c.R)
