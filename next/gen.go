@@ -73,7 +73,18 @@ func newCall() *call {
 	return c
 }
 
-func emitInt(n string, l int, e *emitter) {
+func emitEncodeInt(n string, l int, e *emitter) {
+	log.Printf("emit %v, %v", n, l)
+	for i:= 0; i < l; i++ {
+		if !e.inBWrite {
+			e.MCode.WriteString("\tb.Write([]byte{")
+			e.inBWrite = true
+		}
+		e.MCode.WriteString(fmt.Sprintf("\tuint8(%v>>%v),\n", n, i*8))
+	}
+}
+
+func emitDecodeInt(n string, l int, e *emitter) {
 	log.Printf("emit %v, %v", n, l)
 	for i:= 0; i < l; i++ {
 		if !e.inBWrite {
@@ -85,7 +96,19 @@ func emitInt(n string, l int, e *emitter) {
 }
 
 // TODO: templates.
-func emitString(n string, e *emitter) {
+func emitEncodeString(n string, e *emitter) {
+	if !e.inBWrite {
+		e.MCode.WriteString("\tb.Write([]byte{")
+		e.inBWrite = true
+	}
+	e.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n))
+	e.MCode.WriteString("\t})\n")
+	e.inBWrite = false
+	e.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", n))
+}
+
+// TODO: templates.
+func emitDecodeString(n string, e *emitter) {
 	if !e.inBWrite {
 		e.MCode.WriteString("\tb.Write([]byte{")
 		e.inBWrite = true
@@ -108,22 +131,56 @@ func genEncodeStruct(v interface{}, n string, e *emitter) error {
 	return nil
 }
 
+func genDecodeStruct(v interface{}, n string, e *emitter) error {
+	log.Printf("genDecodeStruct(%T, %v, %v)", v, n, e)
+	t := reflect.ValueOf(v)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		fn := t.Type().Field(i).Name
+		log.Printf("genDecodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
+		genDecodeData(f.Interface(), n + "." + fn, e)
+	}
+	return nil
+}
+
 func genEncodeData(v interface{}, n string, e *emitter) error {
 	log.Printf("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
 	case reflect.Uint8:
-		emitInt(n, 1, e)
+		emitEncodeInt(n, 1, e)
 	case reflect.Uint16:
-		emitInt(n, 2, e)
+		emitEncodeInt(n, 2, e)
 	case reflect.Uint32:
-		emitInt(n, 4, e)
+		emitEncodeInt(n, 4, e)
 	case reflect.Uint64:
-		emitInt(n, 8, e)
+		emitEncodeInt(n, 8, e)
 	case reflect.String:
-		emitString(n, e)
+		emitEncodeString(n, e)
 	case reflect.Struct:
 		return genEncodeStruct(v, n, e)
+		default:
+			log.Printf("Can't handle type %v", s)
+	}
+	return nil
+}
+
+func genDecodeData(v interface{}, n string, e *emitter) error {
+	log.Printf("genEncodeData(%T, %v, %v)", v, n, e)
+	s := reflect.ValueOf(v).Kind() 
+	switch s {
+	case reflect.Uint8:
+		emitDecodeInt(n, 1, e)
+	case reflect.Uint16:
+		emitDecodeInt(n, 2, e)
+	case reflect.Uint32:
+		emitDecodeInt(n, 4, e)
+	case reflect.Uint64:
+		emitDecodeInt(n, 8, e)
+	case reflect.String:
+		emitDecodeString(n, e)
+	case reflect.Struct:
+		return genDecodeStruct(v, n, e)
 		default:
 			log.Printf("Can't handle type %v", s)
 	}
@@ -137,6 +194,9 @@ func genMsgRPC(p *pack) (*call, error) {
 		log.Fatalf("%v", err)
 	}
 	if err := genEncodeData(p.r, p.rn, c.T); err != nil {
+		log.Fatalf("%v", err)
+	}
+	if err := genDecodeData(p.r, p.rn, c.R); err != nil {
 		log.Fatalf("%v", err)
 	}
 	log.Print("e %v d %v", c.T, c.R)
