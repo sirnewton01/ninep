@@ -86,21 +86,15 @@ func emitEncodeInt(n string, l int, e *emitter) {
 
 func emitDecodeInt(n string, l int, e *emitter) {
 	log.Printf("emit %v, %v", n, l)
-	for i:= 0; i < l; i++ {
-		if !e.inBWrite {
-			e.MCode.WriteString("\tb.Write([]byte{")
-			e.inBWrite = true
-		}
-		e.MCode.WriteString(fmt.Sprintf("\tuint8(%v>>%v),\n", n, i*8))
+	e.UCode.WriteString(fmt.Sprintf("\tif _, err = b.Read(u[:%v]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint%v: need %v, have %%d\", b.Len())\n\treturn\n\t}\n", l, l*8, l))
+	e.UCode.WriteString(fmt.Sprintf("\t%v = uint%d(u[0])\n", n, l*8))
+	for i:= 1; i < l; i++ {
+		e.UCode.WriteString(fmt.Sprintf("\t%v |= uint%d(u[%d]<<%v)\n", n, l*8, i, i*8))
 	}
 }
 
 // TODO: templates.
 func emitEncodeString(n string, e *emitter) {
-	if !e.inBWrite {
-		e.MCode.WriteString("\tb.Write([]byte{")
-		e.inBWrite = true
-	}
 	e.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n))
 	e.MCode.WriteString("\t})\n")
 	e.inBWrite = false
@@ -109,14 +103,9 @@ func emitEncodeString(n string, e *emitter) {
 
 // TODO: templates.
 func emitDecodeString(n string, e *emitter) {
-	if !e.inBWrite {
-		e.MCode.WriteString("\tb.Write([]byte{")
-		e.inBWrite = true
-	}
-	e.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n))
-	e.MCode.WriteString("\t})\n")
-	e.inBWrite = false
-	e.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", n))
+	emitDecodeInt("l", 2, e)
+	e.UCode.WriteString(fmt.Sprintf("\tif b.Len() < l {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %%d, have %%d\", l, b.Len())\n\treturn\n\t}\n"))
+	e.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", n))
 }
 
 func genEncodeStruct(v interface{}, n string, e *emitter) error {
