@@ -51,18 +51,18 @@ type call struct {
 }
 
 type pack struct {
-	c  interface{}
-	cn string
+	t  interface{}
+	tn string
 	r  interface{}
 	rn string
 }
 
 var (
 	packages = []*pack{
-//		{c: next.RerrorPkt{}, cn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-		{c: next.TversionPkt{}, cn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
-//		{c: next.TattachPkt{}, cn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
-//		{c: next.TwalkPkt{}, cn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
+//		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
+		{t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
+//		{t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
+//		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
 )
 
@@ -112,8 +112,14 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 	log.Printf("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
+	case reflect.Uint8:
+		emitInt(n, 1, e)
 	case reflect.Uint16:
 		emitInt(n, 2, e)
+	case reflect.Uint32:
+		emitInt(n, 4, e)
+	case reflect.Uint64:
+		emitInt(n, 8, e)
 	case reflect.String:
 		emitString(n, e)
 	case reflect.Struct:
@@ -127,11 +133,13 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 // because the 9p encoding is so simple.
 func genMsgRPC(p *pack) (*call, error) {
 	c := newCall()
-	err := genEncodeData(p.c, p.cn, c.T)
-	if err != nil {
+	if err := genEncodeData(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
-	log.Print("e %v", c.T)
+	if err := genEncodeData(p.r, p.rn, c.T); err != nil {
+		log.Fatalf("%v", err)
+	}
+	log.Print("e %v d %v", c.T, c.R)
 	return nil, nil
 
 }
