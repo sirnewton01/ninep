@@ -177,7 +177,7 @@ func genEncodeStruct(v interface{}, n string, e *emitter) error {
 }
 
 func genDecodeStruct(v interface{}, n string, e *emitter) error {
-	log.Printf("genDecodeStruct(%T, %v, %v)", v, n, "")
+	debug("genDecodeStruct(%T, %v, %v)", v, n, "")
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -193,10 +193,18 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 	k := reflect.TypeOf(v).Elem().Kind()
 	switch k {
 		case reflect.String:
-		var s uint16
-		emitEncodeInt(s, fmt.Sprintf("len(%v)", n), 2, e)
+		var u uint16
+		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
+		if e.inBWrite {
+			e.MCode.WriteString("\t})\n")
+			e.inBWrite = false
+		}
+		e.MCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
+		var s string
+		genEncodeData(s, n+"[i]", e)
+		e.MCode.WriteString("}\n")
 		default:
-			log.Printf("Can't handle slice of %v", k)
+			log.Printf("genEncodeSlice: Can't handle slice of %T", v)
 	}
 	return nil
 }
@@ -223,7 +231,7 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 	case reflect.Slice:
 		return genEncodeSlice(v, n, e)
 		default:
-			log.Printf("Can't handle type %v", s)
+			log.Printf("genEncodeData: Can't handle type %T", v)
 	}
 	return nil
 }
@@ -249,7 +257,7 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 		debug("----------> call gendecodstruct(%v, %v, e)", v, n)
 		return genDecodeStruct(v, n, e)
 		default:
-			log.Printf("Can't handle type %v", s)
+			log.Printf("genDecodeData: Can't handle type %T", v)
 	}
 	return nil
 }
@@ -258,10 +266,8 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 // I don't know why.
 func tn(f reflect.Value) string {
 	n := f.Type().Name()
-log.Printf("n iniitally %v", n)
 	if n == "" {
 		n = f.Type().String()
-log.Printf("n mpt %v", n)
 		// kludge. FIXME.
 		if n[0:7] == "[]next." {
 			n = n[7:]
