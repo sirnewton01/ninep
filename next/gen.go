@@ -82,7 +82,7 @@ var (
 //		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{n: "version", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
-//		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
+		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
 var l uint64
@@ -188,6 +188,19 @@ func genDecodeStruct(v interface{}, n string, e *emitter) error {
 	return nil
 }
 
+func genEncodeSlice(v interface{}, n string, e *emitter) error {
+	// Sadly, []byte is not encoded like []everything else.
+	k := reflect.TypeOf(v).Elem().Kind()
+	switch k {
+		case reflect.String:
+		var s uint16
+		emitEncodeInt(s, fmt.Sprintf("len(%v)", n), 2, e)
+		default:
+			log.Printf("Can't handle slice of %v", k)
+	}
+	return nil
+}
+
 func genEncodeData(v interface{}, n string, e *emitter) error {
 	debug("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
@@ -207,6 +220,8 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 			n = n + "."
 		}
 		return genEncodeStruct(v, n, e)
+	case reflect.Slice:
+		return genEncodeSlice(v, n, e)
 		default:
 			log.Printf("Can't handle type %v", s)
 	}
@@ -239,6 +254,21 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 	return nil
 }
 
+// Well, it's odd, but Name sometimes comes back empty.
+// I don't know why.
+func tn(f reflect.Value) string {
+	n := f.Type().Name()
+log.Printf("n iniitally %v", n)
+	if n == "" {
+		n = f.Type().String()
+log.Printf("n mpt %v", n)
+		// kludge. FIXME.
+		if n[0:7] == "[]next." {
+			n = n[7:]
+		}
+	}
+	return n
+}
 // genParms writes the parameters for declarations (name and type)
 // a list of names (for calling the encoder)
 func genParms(v interface{}, n string, e *emitter) error {
@@ -248,7 +278,7 @@ func genParms(v interface{}, n string, e *emitter) error {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
 		e.MList.WriteString(comma + fn)
-		e.MParms.WriteString(comma + fn + " " + f.Type().Name())
+		e.MParms.WriteString(comma + fn + " " + tn(f))
 		comma = ", "
 	}
 	return nil
@@ -263,7 +293,7 @@ func genRets(v interface{}, n string, e *emitter) error {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
 		e.UList.WriteString(comma + fn)
-		e.URet.WriteString(comma + fn + " " + f.Type().Name())
+		e.URet.WriteString(comma + fn + " " + tn(f))
 		comma = ", "
 	}
 	return nil
