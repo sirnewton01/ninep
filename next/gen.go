@@ -108,6 +108,9 @@ return
 l = uint64(u[0]) | uint64(u[1])<<8
 t = Tag(l)
 {{.UCode}}
+if b.Len() > 0 {
+err = fmt.Errorf("Packet too long: %d bytes left over after decode", b.Len())
+}
 return
 }
 `))
@@ -209,6 +212,24 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 	return nil
 }
 
+func genDecodeSlice(v interface{}, n string, e *emitter) error {
+	// Sadly, []byte is not encoded like []everything else.
+	k := reflect.TypeOf(v).Elem().Kind()
+	switch k {
+		case reflect.String:
+		var u uint64
+		emitDecodeInt(u, "l", 2, e)
+		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]string, l)\n", n))
+		e.UCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
+		var s string
+		genDecodeData(s, n+"[i]", e)
+		e.UCode.WriteString("}\n")
+		default:
+			log.Printf("genEncodeSlice: Can't handle slice of %T", v)
+	}
+	return nil
+}
+
 func genEncodeData(v interface{}, n string, e *emitter) error {
 	debug("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
@@ -256,6 +277,8 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 		}
 		debug("----------> call gendecodstruct(%v, %v, e)", v, n)
 		return genDecodeStruct(v, n, e)
+	case reflect.Slice:
+		return genDecodeSlice(v, n, e)
 		default:
 			log.Printf("genDecodeData: Can't handle type %T", v)
 	}
