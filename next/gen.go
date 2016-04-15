@@ -80,18 +80,19 @@ var (
 	debug = nodebug //log.Printf
 	packages = []*pack{
 //		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-//		{n: "version", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
+		{n: "version", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
+var l uint64
 b.Reset()
 b.Write([]byte{0,0,0,0,
 uint8({{.Name}}),
 byte(t), byte(t>>8),
 {{.MCode}}
 {
-l := b.Len()
+l = uint64(b.Len())
 copy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})
 }
 return
@@ -100,6 +101,12 @@ return
 	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
 var u [8]uint8
 var l uint64
+if _, err = b.Read(u[:2]); err != nil {
+err = fmt.Errorf("pkt too short for Tag; need 2, have %d", b.Len())
+return
+}
+l = uint64(u[0]) | uint64(u[1])<<8
+t = Tag(l)
 {{.UCode}}
 return
 }
