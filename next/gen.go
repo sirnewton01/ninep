@@ -24,19 +24,30 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
-	"os"
 	"reflect"
-	"html/template"
+	"text/template"
 
 	"github.com/rminnich/ninep/next"
 )
 
 const (
+	header =`
+package next
+import (
+"bytes"
+"fmt"
+_ "log"
+)
+`
 )
 
 type emitter struct {
+	Name string
 	MFunc string
 	// Encoders always return []byte
 	MParms *bytes.Buffer
@@ -57,6 +68,7 @@ type call struct {
 }
 
 type pack struct {
+	n string
 	t  interface{}
 	tn string
 	r  interface{}
@@ -64,25 +76,30 @@ type pack struct {
 }
 
 var (
+	doDebug = flag.Bool("d", false, "Debug prints")
 	debug = nodebug //log.Printf
 	packages = []*pack{
 //		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-		{t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
+		{n: "Tversion", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 //		{t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
 b.Reset()
-tb.Write([]byte{0,0,0,0,
-uint8({{.MFunc}})),
+b.Write([]byte{0,0,0,0,
+uint8({{.Name}}),
 byte(t), byte(t>>8),
 {{.MCode}}
-{ l := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n")}
+{
+l := b.Len()
+copy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})
+}
 return
 }
 `))
 	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
-u uint8[8]
+var u [8]uint8
+var l uint64
 {{.UCode}}
 return
 }
@@ -92,14 +109,15 @@ return
 func nodebug(string, ...interface{}) {
 }
 
-func newCall() *call {
+func newCall(p *pack) *call {
 	c := &call{}
-	c.T = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
-	c.R = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
+	// We set inBWrite to true because the prologue marshal code sets up some default writes to b
+	c.T = &emitter{p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.R = &emitter{p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
 	return c
 }
 
-func emitEncodeInt(n string, l int, e *emitter) {
+func emitEncodeInt(v interface{}, n string, l int, e *emitter) {
 	debug("emit %v, %v", n, l)
 	for i:= 0; i < l; i++ {
 		if !e.inBWrite {
@@ -110,28 +128,29 @@ func emitEncodeInt(n string, l int, e *emitter) {
 	}
 }
 
-func emitDecodeInt(n string, l int, e *emitter) {
-	debug("emit %v, %v", n, l)
+func emitDecodeInt(v interface{}, n string, l int, e *emitter) {
+	t := reflect.ValueOf(v).Type().Name()
+	debug("emit reflect.ValueOf(v) %s %v, %v", t, n, l)
 	e.UCode.WriteString(fmt.Sprintf("\tif _, err = b.Read(u[:%v]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint%v: need %v, have %%d\", b.Len())\n\treturn\n\t}\n", l, l*8, l))
-	e.UCode.WriteString(fmt.Sprintf("\t%v = uint%d(u[0])\n", n, l*8))
+	e.UCode.WriteString(fmt.Sprintf("\t%v = %s(u[0])\n", n, t))
 	for i:= 1; i < l; i++ {
-		e.UCode.WriteString(fmt.Sprintf("\t%v |= uint%d(u[%d]<<%v)\n", n, l*8, i, i*8))
+		e.UCode.WriteString(fmt.Sprintf("\t%v |= %s(u[%d]<<%v)\n", n, t, i, i*8))
 	}
 }
 
 // TODO: templates.
-func emitEncodeString(n string, e *emitter) {
+func emitEncodeString(v interface{}, n string, e *emitter) {
 	e.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n))
 	e.MCode.WriteString("\t})\n")
 	e.inBWrite = false
 	e.MCode.WriteString(fmt.Sprintf("\tb.Write([]byte(%v))\n", n))
 }
 
-// TODO: templates.
 func emitDecodeString(n string, e *emitter) {
-	emitDecodeInt("l", 2, e)
-	e.UCode.WriteString(fmt.Sprintf("\tif b.Len() < l {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %%d, have %%d\", l, b.Len())\n\treturn\n\t}\n"))
-	e.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n}\n", n))
+	var l uint64
+	emitDecodeInt(l, "l", 2, e)
+	e.UCode.WriteString(fmt.Sprintf("\tif b.Len() < int(l) {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %%d, have %%d\", l, b.Len())\n\treturn\n\t}\n"))
+	e.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n", n))
 }
 
 func genEncodeStruct(v interface{}, n string, e *emitter) error {
@@ -141,7 +160,7 @@ func genEncodeStruct(v interface{}, n string, e *emitter) error {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
 		debug("genEncodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
-		genEncodeData(f.Interface(), n + "." + fn, e)
+		genEncodeData(f.Interface(), fn, e)
 	}
 	return nil
 }
@@ -153,7 +172,7 @@ func genDecodeStruct(v interface{}, n string, e *emitter) error {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
 		debug("genDecodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
-		genDecodeData(f.Interface(), n + "." + fn, e)
+		genDecodeData(f.Interface(), fn, e)
 	}
 	return nil
 }
@@ -163,15 +182,15 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
 	case reflect.Uint8:
-		emitEncodeInt(n, 1, e)
+		emitEncodeInt(v, n, 1, e)
 	case reflect.Uint16:
-		emitEncodeInt(n, 2, e)
+		emitEncodeInt(v, n, 2, e)
 	case reflect.Uint32:
-		emitEncodeInt(n, 4, e)
+		emitEncodeInt(v, n, 4, e)
 	case reflect.Uint64:
-		emitEncodeInt(n, 8, e)
+		emitEncodeInt(v, n, 8, e)
 	case reflect.String:
-		emitEncodeString(n, e)
+		emitEncodeString(v, n, e)
 	case reflect.Struct:
 		return genEncodeStruct(v, n, e)
 		default:
@@ -185,13 +204,13 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
 	case reflect.Uint8:
-		emitDecodeInt(n, 1, e)
+		emitDecodeInt(v, n, 1, e)
 	case reflect.Uint16:
-		emitDecodeInt(n, 2, e)
+		emitDecodeInt(v, n, 2, e)
 	case reflect.Uint32:
-		emitDecodeInt(n, 4, e)
+		emitDecodeInt(v, n, 4, e)
 	case reflect.Uint64:
-		emitDecodeInt(n, 8, e)
+		emitDecodeInt(v, n, 8, e)
 	case reflect.String:
 		emitDecodeString(n, e)
 	case reflect.Struct:
@@ -234,13 +253,9 @@ func genRets(v interface{}, n string, e *emitter) error {
 
 // genMsgRPC generates the call and reply declarations and marshalers. We don't think of encoders as too separate
 // because the 9p encoding is so simple.
-func genMsgRPC(p *pack) (*call, error) {
+func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 
-	c := newCall()
-	c.T.MFunc = p.tn
-	c.T.UFunc = p.tn
-	c.R.MFunc = p.rn
-	c.R.UFunc = p.rn
+	c := newCall(p)
 
 	if err := genEncodeData(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
@@ -275,21 +290,29 @@ func genMsgRPC(p *pack) (*call, error) {
 
 //	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
 //	log.Print("------------------", c.T.MCode)
-	mfunc.Execute(os.Stdout, c.T)
-	mfunc.Execute(os.Stdout, c.R)
-	ufunc.Execute(os.Stdout, c.T)
-	ufunc.Execute(os.Stdout, c.R)
+	mfunc.Execute(b, c.T)
+	mfunc.Execute(b, c.R)
+	ufunc.Execute(b, c.T)
+	ufunc.Execute(b, c.R)
 	return nil, nil
 
 }
 
 func main() {
+	flag.Parse()
+	if *doDebug {
+		debug = log.Printf
+	}
+	var b = bytes.NewBufferString(header)
 	for _, p := range packages {
-		_, err := genMsgRPC(p)
+		_, err := genMsgRPC(b, p)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
-		//log.Printf("on return, call is %v", call)
 	}
+	if err := ioutil.WriteFile("genout.go", b.Bytes(), 0600); err != nil {
+		log.Fatalf("%v", err)
+	}
+
 
 }
