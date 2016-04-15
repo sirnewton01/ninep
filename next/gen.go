@@ -26,18 +26,25 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"reflect"
+	"html/template"
 
 	"github.com/rminnich/ninep/next"
 )
 
+const (
+)
+
 type emitter struct {
+	MFunc string
 	// Encoders always return []byte
 	MParms *bytes.Buffer
 	MList  *bytes.Buffer
 	MCode  *bytes.Buffer
 
 	// Decoders always take []byte as parms.
+	UFunc string
 	UList    *bytes.Buffer
 	UCode    *bytes.Buffer
 	URet     *bytes.Buffer
@@ -58,23 +65,37 @@ type pack struct {
 }
 
 var (
+	debug = nodebug //log.Printf
 	packages = []*pack{
 //		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 //		{t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
+	mfunc = template.Must(template.New("m").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
+b.Reset()
+tb.Write([]byte{0,0,0,0,
+uint8({{.MFunc}})),
+byte(t), byte(t>>8),
+{{.MCode}}
+return
+}
+`))
+
 )
+
+func nodebug(string, ...interface{}) {
+}
 
 func newCall() *call {
 	c := &call{}
-	c.T = &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
-	c.R = &emitter{&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
+	c.T = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
+	c.R = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
 	return c
 }
 
 func emitEncodeInt(n string, l int, e *emitter) {
-	log.Printf("emit %v, %v", n, l)
+	debug("emit %v, %v", n, l)
 	for i:= 0; i < l; i++ {
 		if !e.inBWrite {
 			e.MCode.WriteString("\tb.Write([]byte{")
@@ -85,7 +106,7 @@ func emitEncodeInt(n string, l int, e *emitter) {
 }
 
 func emitDecodeInt(n string, l int, e *emitter) {
-	log.Printf("emit %v, %v", n, l)
+	debug("emit %v, %v", n, l)
 	e.UCode.WriteString(fmt.Sprintf("\tif _, err = b.Read(u[:%v]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint%v: need %v, have %%d\", b.Len())\n\treturn\n\t}\n", l, l*8, l))
 	e.UCode.WriteString(fmt.Sprintf("\t%v = uint%d(u[0])\n", n, l*8))
 	for i:= 1; i < l; i++ {
@@ -109,31 +130,31 @@ func emitDecodeString(n string, e *emitter) {
 }
 
 func genEncodeStruct(v interface{}, n string, e *emitter) error {
-	log.Printf("genEncodeStruct(%T, %v, %v)", v, n, e)
+	debug("genEncodeStruct(%T, %v, %v)", v, n, e)
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
-		log.Printf("genEncodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
+		debug("genEncodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
 		genEncodeData(f.Interface(), n + "." + fn, e)
 	}
 	return nil
 }
 
 func genDecodeStruct(v interface{}, n string, e *emitter) error {
-	log.Printf("genDecodeStruct(%T, %v, %v)", v, n, e)
+	debug("genDecodeStruct(%T, %v, %v)", v, n, e)
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
-		log.Printf("genDecodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
+		debug("genDecodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
 		genDecodeData(f.Interface(), n + "." + fn, e)
 	}
 	return nil
 }
 
 func genEncodeData(v interface{}, n string, e *emitter) error {
-	log.Printf("genEncodeData(%T, %v, %v)", v, n, e)
+	debug("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
 	case reflect.Uint8:
@@ -155,7 +176,7 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 }
 
 func genDecodeData(v interface{}, n string, e *emitter) error {
-	log.Printf("genEncodeData(%T, %v, %v)", v, n, e)
+	debug("genEncodeData(%T, %v, %v)", v, n, e)
 	s := reflect.ValueOf(v).Kind() 
 	switch s {
 	case reflect.Uint8:
@@ -179,7 +200,7 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 // genParms writes the parameters for declarations (name and type)
 // a list of names (for calling the encoder)
 func genParms(v interface{}, n string, e *emitter) error {
-	comma := ""
+	comma := ", "
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -194,7 +215,7 @@ func genParms(v interface{}, n string, e *emitter) error {
 // genRets writes the rets for declarations (name and type)
 // a list of names
 func genRets(v interface{}, n string, e *emitter) error {
-	comma := ""
+	comma := ", "
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -212,11 +233,13 @@ func genRets(v interface{}, n string, e *emitter) error {
 // genMsgRPC generates the call and reply declarations and marshalers. We don't think of encoders as too separate
 // because the 9p encoding is so simple.
 func genMsgRPC(p *pack) (*call, error) {
+
 	c := newCall()
+	c.T.MFunc = p.tn
 	if err := genEncodeData(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
-	if err := genEncodeData(p.r, p.rn, c.T); err != nil {
+	if err := genEncodeData(p.r, p.rn, c.R); err != nil {
 		log.Fatalf("%v", err)
 	}
 	if err := genDecodeData(p.t, p.tn, c.T); err != nil {
@@ -234,20 +257,23 @@ func genMsgRPC(p *pack) (*call, error) {
 		log.Fatalf("%v", err)
 	}
 
-	log.Print("e %v d %v", c.T, c.R)
+	//log.Print("e %v d %v", c.T, c.R)
 
-	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
+//	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
+//	log.Print("------------------", c.T.MCode)
+	mfunc.Execute(os.Stdout, c.T)
+
 	return nil, nil
 
 }
 
 func main() {
 	for _, p := range packages {
-		call, err := genMsgRPC(p)
+		_, err := genMsgRPC(p)
 		if err != nil {
 			log.Fatalf("%v", err)
 		}
-		log.Printf("on return, call is %v", call)
+		//log.Printf("on return, call is %v", call)
 	}
 
 }
