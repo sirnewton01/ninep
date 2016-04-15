@@ -48,7 +48,6 @@ type emitter struct {
 	UList    *bytes.Buffer
 	UCode    *bytes.Buffer
 	URet     *bytes.Buffer
-	comma    string
 	inBWrite bool
 }
 
@@ -72,16 +71,22 @@ var (
 //		{t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
-	mfunc = template.Must(template.New("m").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
+	mtfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
 b.Reset()
 tb.Write([]byte{0,0,0,0,
 uint8({{.MFunc}})),
 byte(t), byte(t>>8),
 {{.MCode}}
+{ l := b.Len()\n\tcopy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})\n")}
 return
 }
 `))
-
+	mrfunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
+u uint8[8]
+{{.UCode}}
+return
+}
+`))
 )
 
 func nodebug(string, ...interface{}) {
@@ -89,8 +94,8 @@ func nodebug(string, ...interface{}) {
 
 func newCall() *call {
 	c := &call{}
-	c.T = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
-	c.R = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", false}
+	c.T = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
+	c.R = &emitter{"", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
 	return c
 }
 
@@ -215,7 +220,7 @@ func genParms(v interface{}, n string, e *emitter) error {
 // genRets writes the rets for declarations (name and type)
 // a list of names
 func genRets(v interface{}, n string, e *emitter) error {
-	comma := ", "
+	comma := ""
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -236,6 +241,7 @@ func genMsgRPC(p *pack) (*call, error) {
 
 	c := newCall()
 	c.T.MFunc = p.tn
+	c.R.UFunc = p.rn
 	if err := genEncodeData(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -261,7 +267,8 @@ func genMsgRPC(p *pack) (*call, error) {
 
 //	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
 //	log.Print("------------------", c.T.MCode)
-	mfunc.Execute(os.Stdout, c.T)
+	mtfunc.Execute(os.Stdout, c.T)
+	mrfunc.Execute(os.Stdout, c.R)
 
 	return nil, nil
 
