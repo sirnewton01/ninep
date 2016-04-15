@@ -80,7 +80,7 @@ var (
 	debug = nodebug //log.Printf
 	packages = []*pack{
 //		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-		{n: "Tversion", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
+		{n: "version", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 //		{t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
@@ -112,8 +112,8 @@ func nodebug(string, ...interface{}) {
 func newCall(p *pack) *call {
 	c := &call{}
 	// We set inBWrite to true because the prologue marshal code sets up some default writes to b
-	c.T = &emitter{p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
-	c.R = &emitter{p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.T = &emitter{"T"+p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.R = &emitter{"R"+p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
 	return c
 }
 
@@ -291,8 +291,8 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 //	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
 //	log.Print("------------------", c.T.MCode)
 	mfunc.Execute(b, c.T)
-	mfunc.Execute(b, c.R)
 	ufunc.Execute(b, c.T)
+	mfunc.Execute(b, c.R)
 	ufunc.Execute(b, c.R)
 	return nil, nil
 

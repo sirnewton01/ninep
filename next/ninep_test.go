@@ -7,8 +7,8 @@ package next
 import (
 	"bytes"
 	"flag"
-	"fmt"
-	"io"
+//	"fmt"
+//	"io"
 	//	"math"
 	"reflect"
 	"testing"
@@ -51,12 +51,12 @@ func TestEncode(t *testing.T) {
 			[]byte{19, 0, 0, 0, 101, 0xaa, 0x55, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
 			func(b *bytes.Buffer) { MarshalRversionPkt(b, Tag(0x55aa), 8192, "9P2000") },
 		},
+/*
 			{
 				"Twalk tag 0 fid 0 newfid 1 to null",
 				[]byte{23, 0, 0, 0, 110, 0xaa, 0x55, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0, 110, 117, 108, 108},
 				func(b *bytes.Buffer) { MarshalTwalkPkt(b, Tag(0x55aa), 0, 1, []string{"null",}) },
 			},
-		/*
 			{
 				"Flush test with tag 1 and oldtag 2",
 				[]byte{9, 0, 0, 0, 108, 1, 0, 2, 0},
@@ -205,6 +205,7 @@ type echo struct {
 	Versioned bool
 }
 
+/*
 // Dispatch dispatches request to different functions.
 // We could do this with interface assertions and such a al rsc/fuse
 // but most people I talked do disliked that. So we don't. If you want
@@ -241,7 +242,7 @@ func (e *echo) Rwalk(fid uint32, newfid uint32, paths []string) ([]QID, error) {
 	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
 	return []QID{QID{0,1,2}, QID{6,7,8}}, nil
 }
-func TestTVersion(t *testing.T) {
+func testTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 	c, err := NewClient(func(c *Client) error {
@@ -302,3 +303,4 @@ func TestTVersion(t *testing.T) {
 	t.Logf("Walk is %v", w)
 
 }
+*/
