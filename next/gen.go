@@ -229,9 +229,6 @@ func genRets(v interface{}, n string, e *emitter) error {
 		e.URet.WriteString(comma + fn + " " + f.Type().Name())
 		comma = ", "
 	}
-	e.UList.WriteString(comma + "error")
-	e.URet.WriteString(comma + "err error")
-
 	return nil
 }
 
@@ -259,6 +256,14 @@ func genMsgRPC(p *pack) (*call, error) {
 	}
 
 	if err := genParms(p.t, p.tn, c.T); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	if err := genRets(p.t, p.tn, c.T); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	if err := genParms(p.r, p.rn, c.R); err != nil {
 		log.Fatalf("%v", err)
 	}
 
