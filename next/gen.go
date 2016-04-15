@@ -191,11 +191,11 @@ func genDecodeStruct(v interface{}, n string, e *emitter) error {
 	return nil
 }
 
+// TODO: there has to be a smarter way to do slices.
 func genEncodeSlice(v interface{}, n string, e *emitter) error {
-	// Sadly, []byte is not encoded like []everything else.
-	k := reflect.TypeOf(v).Elem().Kind()
-	switch k {
-		case reflect.String:
+	t := fmt.Sprintf("%T", v)
+	switch t {
+		case "[]string":
 		var u uint16
 		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
 		if e.inBWrite {
@@ -206,6 +206,18 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genEncodeData(s, n+"[i]", e)
 		e.MCode.WriteString("}\n")
+		case "[]next.QID":
+		var u uint16
+		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
+		if e.inBWrite {
+			e.MCode.WriteString("\t})\n")
+			e.inBWrite = false
+		}
+		e.MCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
+		genEncodeData(next.QID{}, n+"[i]", e)
+		e.MCode.WriteString("\t})\n")
+		e.inBWrite = false
+		e.MCode.WriteString("}\n")
 		default:
 			log.Printf("genEncodeSlice: Can't handle slice of %T", v)
 	}
@@ -214,9 +226,9 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 
 func genDecodeSlice(v interface{}, n string, e *emitter) error {
 	// Sadly, []byte is not encoded like []everything else.
-	k := reflect.TypeOf(v).Elem().Kind()
-	switch k {
-		case reflect.String:
+	t := fmt.Sprintf("%T", v)
+	switch t {
+		case "[]string":
 		var u uint64
 		emitDecodeInt(u, "l", 2, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]string, l)\n", n))
@@ -224,8 +236,15 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genDecodeData(s, n+"[i]", e)
 		e.UCode.WriteString("}\n")
+		case "[]next.QID":
+		var u uint64
+		emitDecodeInt(u, "l", 2, e)
+		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, l)\n", n))
+		e.UCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
+		genDecodeData(next.QID{}, n+"[i]", e)
+		e.UCode.WriteString("}\n")
 		default:
-			log.Printf("genEncodeSlice: Can't handle slice of %T", v)
+			log.Printf("genEncodeSlice: Can't handle slice of %v", t)
 	}
 	return nil
 }
@@ -290,10 +309,12 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 func tn(f reflect.Value) string {
 	n := f.Type().Name()
 	if n == "" {
-		n = f.Type().String()
-		// kludge. FIXME.
-		if n[0:7] == "[]next." {
-			n = n[7:]
+		t := f.Type().String()
+		switch t {
+		case "[]next.QID":
+			n = "[]QID"
+		default:
+			n = t
 		}
 	}
 	return n
