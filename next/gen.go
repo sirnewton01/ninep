@@ -71,7 +71,7 @@ var (
 //		{t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 //		{t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
-	mtfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
+	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
 b.Reset()
 tb.Write([]byte{0,0,0,0,
 uint8({{.MFunc}})),
@@ -81,7 +81,7 @@ byte(t), byte(t>>8),
 return
 }
 `))
-	mrfunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
+	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
 u uint8[8]
 {{.UCode}}
 return
@@ -241,7 +241,10 @@ func genMsgRPC(p *pack) (*call, error) {
 
 	c := newCall()
 	c.T.MFunc = p.tn
+	c.T.UFunc = p.tn
+	c.R.MFunc = p.rn
 	c.R.UFunc = p.rn
+
 	if err := genEncodeData(p.t, p.tn, c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -267,9 +270,10 @@ func genMsgRPC(p *pack) (*call, error) {
 
 //	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
 //	log.Print("------------------", c.T.MCode)
-	mtfunc.Execute(os.Stdout, c.T)
-	mrfunc.Execute(os.Stdout, c.R)
-
+	mfunc.Execute(os.Stdout, c.T)
+	mfunc.Execute(os.Stdout, c.R)
+	ufunc.Execute(os.Stdout, c.T)
+	ufunc.Execute(os.Stdout, c.R)
 	return nil, nil
 
 }
