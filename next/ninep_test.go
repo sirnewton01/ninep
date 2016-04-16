@@ -240,7 +240,7 @@ func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
 	return []QID{QID{0,1,2}, QID{6,7,8}}, nil
 }
-func testTVersion(t *testing.T) {
+func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 	c, err := NewClient(func(c *Client) error {
