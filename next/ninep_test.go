@@ -50,7 +50,7 @@ func TestEncode(t *testing.T) {
 			[]byte{19, 0, 0, 0, 101, 0xaa, 0x55, 0, 32, 0, 0, 6, 0, 57, 80, 50, 48, 48, 48},
 			func(b *bytes.Buffer) { MarshalRversionPkt(b, Tag(0x55aa), 8192, "9P2000") },
 		},
-/*
+		/*
 			{
 				"Twalk tag 0 fid 0 newfid 1 to null",
 				[]byte{23, 0, 0, 0, 110, 0xaa, 0x55, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0, 110, 117, 108, 108},
@@ -232,13 +232,13 @@ func (e *echo) Rversion(msize MaxSize, version string) (MaxSize, string, error) 
 
 func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 	if !e.Versioned {
-		return QID{}, fmt.Errorf("Version must be one first")
+		return QID{}, fmt.Errorf("Attach: Version must be done first")
 	}
 	return QID{}, nil
 }
 func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
-	return []QID{QID{0,1,2}, QID{6,7,8}}, nil
+	return []QID{QID{0, 1, 2}, QID{6, 7, 8}}, nil
 }
 func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()

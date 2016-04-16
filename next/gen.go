@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	header =`
+	header = `
 package next
 import (
 "bytes"
@@ -47,7 +47,7 @@ _ "log"
 )
 
 type emitter struct {
-	Name string
+	Name  string
 	MFunc string
 	// Encoders always return []byte
 	MParms *bytes.Buffer
@@ -55,7 +55,7 @@ type emitter struct {
 	MCode  *bytes.Buffer
 
 	// Decoders always take []byte as parms.
-	UFunc string
+	UFunc    string
 	UList    *bytes.Buffer
 	UCode    *bytes.Buffer
 	URet     *bytes.Buffer
@@ -68,7 +68,7 @@ type call struct {
 }
 
 type pack struct {
-	n string
+	n  string
 	t  interface{}
 	tn string
 	r  interface{}
@@ -89,8 +89,8 @@ const (
 )
 
 var (
-	doDebug = flag.Bool("d", false, "Debug prints")
-	debug = nodebug //log.Printf
+	doDebug  = flag.Bool("d", false, "Debug prints")
+	debug    = nodebug //log.Printf
 	packages = []*pack{
 		{n: "error", t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{n: "version", t: next.TversionPkt{}, tn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
@@ -143,7 +143,7 @@ if err != nil {
 	cfunc = template.Must(template.New("s").Parse(`
 func (c *Client)Call{{.T.MFunc}} ({{.T.MParms}}) ({{.R.URet}}, err error) {
 var b = bytes.Buffer{}
-//c.Trace("%v")
+c.Trace("%v", {{.T.MFunc}})
 t := <- c.Tags
 r := make (chan []byte)
 //c.Trace(":tag %%v, FID %%v", t, c.FID)
@@ -162,9 +162,7 @@ if MType(bb[4]) == Rerror {
 return {{.R.UList}}, err
 }
 `))
-
 )
-
 
 func nodebug(string, ...interface{}) {
 }
@@ -172,14 +170,14 @@ func nodebug(string, ...interface{}) {
 func newCall(p *pack) *call {
 	c := &call{}
 	// We set inBWrite to true because the prologue marshal code sets up some default writes to b
-	c.T = &emitter{"T"+p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
-	c.R = &emitter{"R"+p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.T = &emitter{"T" + p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.R = &emitter{"R" + p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
 	return c
 }
 
 func emitEncodeInt(v interface{}, n string, l int, e *emitter) {
 	debug("emit %v, %v", n, l)
-	for i:= 0; i < l; i++ {
+	for i := 0; i < l; i++ {
 		if !e.inBWrite {
 			e.MCode.WriteString("\tb.Write([]byte{")
 			e.inBWrite = true
@@ -193,17 +191,17 @@ func emitDecodeInt(v interface{}, n string, l int, e *emitter) {
 	debug("emit reflect.ValueOf(v) %s %v, %v", t, n, l)
 	e.UCode.WriteString(fmt.Sprintf("\tif _, err = b.Read(u[:%v]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint%v: need %v, have %%d\", b.Len())\n\treturn\n\t}\n", l, l*8, l))
 	e.UCode.WriteString(fmt.Sprintf("\t%v = %s(u[0])\n", n, t))
-	for i:= 1; i < l; i++ {
+	for i := 1; i < l; i++ {
 		e.UCode.WriteString(fmt.Sprintf("\t%v |= %s(u[%d]<<%v)\n", n, t, i, i*8))
 	}
 }
 
 // TODO: templates.
 func emitEncodeString(v interface{}, n string, e *emitter) {
-		if !e.inBWrite {
-			e.MCode.WriteString("\tb.Write([]byte{")
-			e.inBWrite = true
-		}
+	if !e.inBWrite {
+		e.MCode.WriteString("\tb.Write([]byte{")
+		e.inBWrite = true
+	}
 	e.MCode.WriteString(fmt.Sprintf("\tuint8(len(%v)),uint8(len(%v)>>8),\n", n, n))
 	e.MCode.WriteString("\t})\n")
 	e.inBWrite = false
@@ -224,7 +222,7 @@ func genEncodeStruct(v interface{}, n string, e *emitter) error {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
 		debug("genEncodeStruct %T n %v field %d %v %v\n", t, n, i, f.Type(), f.Type().Name())
-		genEncodeData(f.Interface(), n + fn, e)
+		genEncodeData(f.Interface(), n+fn, e)
 	}
 	return nil
 }
@@ -245,7 +243,7 @@ func genDecodeStruct(v interface{}, n string, e *emitter) error {
 func genEncodeSlice(v interface{}, n string, e *emitter) error {
 	t := fmt.Sprintf("%T", v)
 	switch t {
-		case "[]string":
+	case "[]string":
 		var u uint16
 		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
 		if e.inBWrite {
@@ -256,7 +254,7 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genEncodeData(s, n+"[i]", e)
 		e.MCode.WriteString("}\n")
-		case "[]next.QID":
+	case "[]next.QID":
 		var u uint16
 		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
 		if e.inBWrite {
@@ -268,8 +266,8 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 		e.MCode.WriteString("\t})\n")
 		e.inBWrite = false
 		e.MCode.WriteString("}\n")
-		default:
-			log.Printf("genEncodeSlice: Can't handle slice of %T", v)
+	default:
+		log.Printf("genEncodeSlice: Can't handle slice of %T", v)
 	}
 	return nil
 }
@@ -278,7 +276,7 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 	// Sadly, []byte is not encoded like []everything else.
 	t := fmt.Sprintf("%T", v)
 	switch t {
-		case "[]string":
+	case "[]string":
 		var u uint64
 		emitDecodeInt(u, "l", 2, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]string, l)\n", n))
@@ -286,22 +284,22 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genDecodeData(s, n+"[i]", e)
 		e.UCode.WriteString("}\n")
-		case "[]next.QID":
+	case "[]next.QID":
 		var u uint64
 		emitDecodeInt(u, "l", 2, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, l)\n", n))
 		e.UCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
 		genDecodeData(next.QID{}, n+"[i]", e)
 		e.UCode.WriteString("}\n")
-		default:
-			log.Printf("genEncodeSlice: Can't handle slice of %v", t)
+	default:
+		log.Printf("genEncodeSlice: Can't handle slice of %v", t)
 	}
 	return nil
 }
 
 func genEncodeData(v interface{}, n string, e *emitter) error {
 	debug("genEncodeData(%T, %v, %v)", v, n, e)
-	s := reflect.ValueOf(v).Kind() 
+	s := reflect.ValueOf(v).Kind()
 	switch s {
 	case reflect.Uint8:
 		emitEncodeInt(v, n, 1, e)
@@ -320,15 +318,15 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 		return genEncodeStruct(v, n, e)
 	case reflect.Slice:
 		return genEncodeSlice(v, n, e)
-		default:
-			log.Printf("genEncodeData: Can't handle type %T", v)
+	default:
+		log.Printf("genEncodeData: Can't handle type %T", v)
 	}
 	return nil
 }
 
 func genDecodeData(v interface{}, n string, e *emitter) error {
-	debug("genEncodeData(%T, %v, %v)", v, n, "")//e)
-	s := reflect.ValueOf(v).Kind() 
+	debug("genEncodeData(%T, %v, %v)", v, n, "") //e)
+	s := reflect.ValueOf(v).Kind()
 	switch s {
 	case reflect.Uint8:
 		emitDecodeInt(v, n, 1, e)
@@ -348,8 +346,8 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 		return genDecodeStruct(v, n, e)
 	case reflect.Slice:
 		return genDecodeSlice(v, n, e)
-		default:
-			log.Printf("genDecodeData: Can't handle type %T", v)
+	default:
+		log.Printf("genDecodeData: Can't handle type %T", v)
 	}
 	return nil
 }
@@ -369,10 +367,11 @@ func tn(f reflect.Value) string {
 	}
 	return n
 }
+
 // genParms writes the parameters for declarations (name and type)
 // a list of names (for calling the encoder)
 func genParms(v interface{}, n string, e *emitter) error {
-	comma := ""// ", "
+	comma := "" // ", "
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -411,7 +410,7 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 	if c.T.inBWrite {
 		c.T.MCode.WriteString("\t})\n")
 		c.T.inBWrite = false
-	}	
+	}
 
 	if err := genEncodeStruct(p.r, "", c.R); err != nil {
 		log.Fatalf("%v", err)
@@ -419,7 +418,7 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 	if c.R.inBWrite {
 		c.R.MCode.WriteString("\t})\n")
 		c.R.inBWrite = false
-	}	
+	}
 
 	if err := genDecodeStruct(p.t, "", c.T); err != nil {
 		log.Fatalf("%v", err)
@@ -447,8 +446,8 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 
 	//log.Print("e %v d %v", c.T, c.R)
 
-//	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
-//	log.Print("------------------", c.T.MCode)
+	//	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
+	//	log.Print("------------------", c.T.MCode)
 	mfunc.Execute(b, c.T)
 	ufunc.Execute(b, c.T)
 	// TODO: do this better
@@ -480,6 +479,5 @@ func main() {
 	if err := ioutil.WriteFile("genout.go", b.Bytes(), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}
-
 
 }

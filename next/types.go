@@ -123,7 +123,7 @@ type (
 	NumEntries uint16
 	Tag        uint16
 	FID        uint32
-	MaxSize   uint32
+	MaxSize    uint32
 	Count      int32
 	Perm       int32
 	Offset     uint64
@@ -178,7 +178,7 @@ type RversionPkt struct {
 }
 
 type TattachPkt struct {
-	SFID   FID
+	SFID  FID
 	AFID  FID
 	Uname string
 	Aname string
@@ -189,9 +189,9 @@ type RattachPkt struct {
 }
 
 type TwalkPkt struct {
-	SFID FID
+	SFID   FID
 	NewFID FID
-	Paths []string
+	Paths  []string
 }
 
 type RwalkPkt struct {
