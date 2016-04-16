@@ -270,13 +270,14 @@ func TestTVersion(t *testing.T) {
 	}
 
 	e.Start()
-	if true {
-	m, v, err := c.CallTversion(8000, "9P2000")
-	if err != nil {
-		t.Fatalf("CallTversion: want nil, got %v", err)
-	}
-	t.Logf("CallTversion: msize %v version %v", m, v)
-	t.Fatalf("Quit early")
+	// If things really go to hell, change this to true.
+	if false {
+		m, v, err := c.CallTversion(8000, "9P2000")
+		if err != nil {
+			t.Fatalf("CallTversion: want nil, got %v", err)
+		}
+		t.Logf("CallTversion: msize %v version %v", m, v)
+		t.Fatalf("Quit early")
 	}
 
 	t.Logf("Server is %v", e.String())
