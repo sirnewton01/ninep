@@ -222,7 +222,7 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 	return nil
 }
 
-func (e *echo) Rversion(msize uint32, version string) (uint32, string, error) {
+func (e *echo) Rversion(msize MaxSize, version string) (MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
 	}
@@ -230,13 +230,13 @@ func (e *echo) Rversion(msize uint32, version string) (uint32, string, error) {
 	return msize, version, nil
 }
 
-func (e *echo) Rattach(uint32, uint32, string, string) (QID, error) {
+func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 	if !e.Versioned {
 		return QID{}, fmt.Errorf("Version must be one first")
 	}
 	return QID{}, nil
 }
-func (e *echo) Rwalk(fid uint32, newfid uint32, paths []string) ([]QID, error) {
+func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
 	return []QID{QID{0,1,2}, QID{6,7,8}}, nil
 }

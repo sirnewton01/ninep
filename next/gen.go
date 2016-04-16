@@ -79,12 +79,12 @@ var (
 	doDebug = flag.Bool("d", false, "Debug prints")
 	debug = nodebug //log.Printf
 	packages = []*pack{
-		{n: "error", t: next.RerrorPkt{}, tn: "RerrorPkt", r: next.RerrorPkt{}, rn: "RerrorPkt"},
-		{n: "version", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
+		{n: "error", t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
+		{n: "version", t: next.TversionPkt{}, tn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
-	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag, {{.MParms}}) {
+	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
 b.Reset()
 b.Write([]byte{0,0,0,0,
@@ -98,7 +98,7 @@ copy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})
 return
 }
 `))
-	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
+	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}}Pkt (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
 var u [8]uint8
 var l uint64
 if _, err = b.Read(u[:2]); err != nil {
@@ -115,14 +115,14 @@ return
 }
 `))
 	sfunc = template.Must(template.New("s").Parse(`func (s *Server) Srv{{.R.UFunc}}(b*bytes.Buffer) (err error) {
-	{{.T.MList}}, t, err := Unmarshal{{.T.MFunc}}(b)
+	{{.T.MList}}, t, err := Unmarshal{{.T.MFunc}}Pkt(b)
 	//if err != nil {
 	//}
 	{{.R.MList}}, err := s.NS.{{.R.MFunc}}({{.T.MList}})
 if err != nil {
 	MarshalRerrorPkt(b, t, fmt.Sprintf("%v", err))
 } else {
-	Marshal{{.R.MFunc}}(b, t, {{.R.MList}})
+	Marshal{{.R.MFunc}}Pkt(b, t, {{.R.MList}})
 }
 	return nil
 }

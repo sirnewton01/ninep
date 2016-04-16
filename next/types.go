@@ -168,18 +168,18 @@ type Dir struct {
 // put struct members.
 
 type TversionPkt struct {
-	Msize   MaxSize
-	Version string
+	TMsize   MaxSize
+	TVersion string
 }
 
 type RversionPkt struct {
-	Msize   MaxSize
-	Version string
+	RMsize   MaxSize
+	RVersion string
 }
 
 type TattachPkt struct {
-	FID   uint32
-	AFID  uint32
+	SFID   FID
+	AFID  FID
 	Uname string
 	Aname string
 }
@@ -189,8 +189,8 @@ type RattachPkt struct {
 }
 
 type TwalkPkt struct {
-	FID uint32
-	NewFID uint32
+	SFID FID
+	NewFID FID
 	Paths []string
 }
 
@@ -245,7 +245,7 @@ type Server struct {
 
 type NineServer interface {
 	Dispatch(*bytes.Buffer, MType) error
-	Rversion(uint32, string) (uint32, string, error)
-	Rattach(uint32, uint32, string, string) (QID, error)
-	Rwalk(uint32, uint32, []string) ([]QID, error)
+	Rversion(MaxSize, string) (MaxSize, string, error)
+	Rattach(FID, FID, string, string) (QID, error)
+	Rwalk(FID, FID, []string) ([]QID, error)
 }
