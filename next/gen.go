@@ -75,6 +75,19 @@ type pack struct {
 	rn string
 }
 
+const (
+	serverError = `func ServerError (b *bytes.Buffer, s string) {
+	var u [8]byte
+	// This can't really happen. 
+	if _, err := b.Read(u[:2]); err != nil {
+		return
+	}
+	t := Tag(uint16(u[0])|uint16(u[1])<<8)
+	MarshalRerrorPkt (b, t, s)
+}
+`
+)
+
 var (
 	doDebug = flag.Bool("d", false, "Debug prints")
 	debug = nodebug //log.Printf
@@ -127,6 +140,29 @@ if err != nil {
 	return nil
 }
 `))
+	cfunc = template.Must(template.New("s").Parse(`
+func (c *Client)Call{{.T.MFunc}} ({{.T.MParms}}) ({{.R.URet}}, err error) {
+var b = bytes.Buffer{}
+//c.Trace("%v")
+t := <- c.Tags
+r := make (chan []byte)
+//c.Trace(":tag %%v, FID %%v", t, c.FID)
+Marshal{{.T.MFunc}}Pkt(&b, t, {{.T.MList}})
+c.FromClient <- &RPCCall{b: b.Bytes(), Reply: r}
+bb := <-r
+if MType(bb[4]) == Rerror {
+	s, _, err := UnmarshalRerrorPkt(bytes.NewBuffer(bb[5:]))
+	if err != nil {
+		return {{.R.UList}}, err
+	}
+	return {{.R.UList}}, fmt.Errorf("%v", s)
+} else {
+	{{.R.MList}}, _, err = Unmarshal{{.R.UFunc}}Pkt(bytes.NewBuffer(bb[5:]))
+}
+return {{.R.UList}}, err
+}
+`))
+
 )
 
 
@@ -422,6 +458,7 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 	mfunc.Execute(b, c.R)
 	ufunc.Execute(b, c.R)
 	sfunc.Execute(b, c)
+	cfunc.Execute(b, c)
 	return nil, nil
 
 }
@@ -438,6 +475,8 @@ func main() {
 			log.Fatalf("%v", err)
 		}
 	}
+	b.WriteString(serverError)
+
 	if err := ioutil.WriteFile("genout.go", b.Bytes(), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}
