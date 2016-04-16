@@ -79,12 +79,12 @@ var (
 	doDebug = flag.Bool("d", false, "Debug prints")
 	debug = nodebug //log.Printf
 	packages = []*pack{
-//		{t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
+		{n: "error", t: next.RerrorPkt{}, tn: "RerrorPkt", r: next.RerrorPkt{}, rn: "RerrorPkt"},
 		{n: "version", t: next.TversionPkt{}, tn: "TversionPkt", r: next.RversionPkt{}, rn: "RversionPkt"},
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 	}
-	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag{{.MParms}}) {
+	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
 b.Reset()
 b.Write([]byte{0,0,0,0,
@@ -114,7 +114,21 @@ err = fmt.Errorf("Packet too long: %d bytes left over after decode", b.Len())
 return
 }
 `))
+	sfunc = template.Must(template.New("s").Parse(`func (s *Server) Srv{{.R.UFunc}}(b*bytes.Buffer) (err error) {
+	{{.T.MList}}, t, err := Unmarshal{{.T.MFunc}}(b)
+	//if err != nil {
+	//}
+	{{.R.MList}}, err := s.NS.{{.R.MFunc}}({{.T.MList}})
+if err != nil {
+	MarshalRerrorPkt(b, t, fmt.Sprintf("%v", err))
+} else {
+	Marshal{{.R.MFunc}}(b, t, {{.R.MList}})
+}
+	return nil
+}
+`))
 )
+
 
 func nodebug(string, ...interface{}) {
 }
@@ -322,7 +336,7 @@ func tn(f reflect.Value) string {
 // genParms writes the parameters for declarations (name and type)
 // a list of names (for calling the encoder)
 func genParms(v interface{}, n string, e *emitter) error {
-	comma := ", "
+	comma := ""// ", "
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -401,8 +415,13 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 //	log.Print("------------------", c.T.MCode)
 	mfunc.Execute(b, c.T)
 	ufunc.Execute(b, c.T)
+	// TODO: do this better
+	if c.T.Name == "Terror" {
+		return nil, nil
+	}
 	mfunc.Execute(b, c.R)
 	ufunc.Execute(b, c.R)
+	sfunc.Execute(b, c)
 	return nil, nil
 
 }

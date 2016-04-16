@@ -7,9 +7,8 @@ package next
 import (
 	"bytes"
 	"flag"
-//	"fmt"
-//	"io"
-	//	"math"
+	"fmt"
+	"io"
 	"reflect"
 	"testing"
 )
@@ -205,9 +204,8 @@ type echo struct {
 	Versioned bool
 }
 
-/*
 // Dispatch dispatches request to different functions.
-// We could do this with interface assertions and such a al rsc/fuse
+// We could do this with interface assertions and such a la rsc/fuse
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
 func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
@@ -303,4 +301,3 @@ func testTVersion(t *testing.T) {
 	t.Logf("Walk is %v", w)
 
 }
-*/
