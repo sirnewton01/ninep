@@ -115,7 +115,7 @@ func (c *Client) IO() {
 	for {
 		r := <-c.FromServer
 		c.Trace("Read %v FromServer", r.b)
-		t := r.b[5] + r.b[6]<<8
+		t := Tag(r.b[5]) | Tag(r.b[6])<<8
 		//panic(fmt.Sprintf("Tag for reply is %v", t))
 		c.RPC[t].Reply <- r.b
 	}

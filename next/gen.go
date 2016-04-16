@@ -82,7 +82,7 @@ const (
 	if _, err := b.Read(u[:2]); err != nil {
 		return
 	}
-	t := Tag(uint16(u[0])|uint16(u[1])<<8)
+	t := Tag(uint16(u[0])|uint16(u[1]))<<8
 	MarshalRerrorPkt (b, t, s)
 }
 `
@@ -192,7 +192,7 @@ func emitDecodeInt(v interface{}, n string, l int, e *emitter) {
 	e.UCode.WriteString(fmt.Sprintf("\tif _, err = b.Read(u[:%v]); err != nil {\n\t\terr = fmt.Errorf(\"pkt too short for uint%v: need %v, have %%d\", b.Len())\n\treturn\n\t}\n", l, l*8, l))
 	e.UCode.WriteString(fmt.Sprintf("\t%v = %s(u[0])\n", n, t))
 	for i := 1; i < l; i++ {
-		e.UCode.WriteString(fmt.Sprintf("\t%v |= %s(u[%d]<<%v)\n", n, t, i, i*8))
+		e.UCode.WriteString(fmt.Sprintf("\t%v |= %s(u[%d])<<%v\n", n, t, i, i*8))
 	}
 }
 
