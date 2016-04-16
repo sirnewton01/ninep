@@ -166,6 +166,11 @@ type Dir struct {
 
 // N.B. In all packets, the wire order is assumed to be the order in which you
 // put struct members.
+// In an earlier version of this code we got really fancy and made it so you
+// could have identically named fields in the R and T packets. It's only an issue
+// in a trivial number of packets so we place the burden on you, the user, to make
+// the names different. Also, you can't name struct members with the same names as the
+// type. Sorry. But it keeps gen.go so much simpler.
 
 type TversionPkt struct {
 	TMsize   MaxSize
@@ -196,6 +201,16 @@ type TwalkPkt struct {
 
 type RwalkPkt struct {
 	QIDs []QID
+}
+
+type TopenPkt struct {
+	OFID  FID
+	Omode Mode
+}
+
+type RopenPkt struct {
+	OQID   QID
+	IOUnit MaxSize
 }
 
 type RerrorPkt struct {
@@ -248,4 +263,5 @@ type NineServer interface {
 	Rversion(MaxSize, string) (MaxSize, string, error)
 	Rattach(FID, FID, string, string) (QID, error)
 	Rwalk(FID, FID, []string) ([]QID, error)
+	Ropen(FID, Mode) (QID, MaxSize, error)
 }

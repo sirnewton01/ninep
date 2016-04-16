@@ -236,10 +236,17 @@ func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 	}
 	return QID{}, nil
 }
+
 func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
 	return []QID{QID{0, 1, 2}, QID{6, 7, 8}}, nil
 }
+
+func (e *echo) Ropen(fid FID, mode Mode) (QID, MaxSize, error) {
+	fmt.Printf("open(%v, %v\n", fid, mode)
+	return QID{}, 4000, nil
+}
+
 func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()

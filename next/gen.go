@@ -96,6 +96,7 @@ var (
 		{n: "version", t: next.TversionPkt{}, tn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
+		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
