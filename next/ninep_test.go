@@ -216,6 +216,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRattach(b)
 	case Twalk:
 		return e.SrvRwalk(b)
+	case Topen:
+		return e.SrvRopen(b)
 	}
 	// This has been tested by removing Attach from the switch.
 	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
@@ -316,5 +318,11 @@ func TestTVersion(t *testing.T) {
 		t.Fatalf("CallTattach: want nil, got %v", err)
 	}
 	t.Logf("Walk is %v", w)
+
+	q, iounit, err := c.CallTopen(1, 1)
+	if err != nil {
+		t.Fatalf("CallTopen: want nil, got %v", err)
+	}
+	t.Logf("Open is %v %v", q, iounit)
 
 }

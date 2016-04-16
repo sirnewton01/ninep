@@ -82,7 +82,7 @@ const (
 	if _, err := b.Read(u[:2]); err != nil {
 		return
 	}
-	t := Tag(uint16(u[0])|uint16(u[1]))<<8
+	t := Tag(uint16(u[0])|uint16(u[1])<<8)
 	MarshalRerrorPkt (b, t, s)
 }
 `
@@ -406,6 +406,18 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 
 	c := newCall(p)
 
+	if err := genEncodeStruct(p.r, "", c.R); err != nil {
+		log.Fatalf("%v", err)
+	}
+	if c.R.inBWrite {
+		c.R.MCode.WriteString("\t})\n")
+		c.R.inBWrite = false
+	}
+	if err := genDecodeStruct(p.r, "", c.R); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+
 	if err := genEncodeStruct(p.t, "", c.T); err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -414,19 +426,7 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 		c.T.inBWrite = false
 	}
 
-	if err := genEncodeStruct(p.r, "", c.R); err != nil {
-		log.Fatalf("%v", err)
-	}
-	if c.R.inBWrite {
-		c.R.MCode.WriteString("\t})\n")
-		c.R.inBWrite = false
-	}
-
 	if err := genDecodeStruct(p.t, "", c.T); err != nil {
-		log.Fatalf("%v", err)
-	}
-	debug("========================================================")
-	if err := genDecodeStruct(p.r, "", c.R); err != nil {
 		log.Fatalf("%v", err)
 	}
 
@@ -450,14 +450,15 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 
 	//	log.Print("------------------", c.T.MParms, "0", c.T.MList, "1", c.R.URet, "2", c.R.UList)
 	//	log.Print("------------------", c.T.MCode)
-	mfunc.Execute(b, c.T)
-	ufunc.Execute(b, c.T)
-	// TODO: do this better
-	if c.T.Name == "Terror" {
-		return nil, nil
-	}
 	mfunc.Execute(b, c.R)
 	ufunc.Execute(b, c.R)
+
+	if p.n == "error" {
+		return c, nil
+	}
+
+	mfunc.Execute(b, c.T)
+	ufunc.Execute(b, c.T)
 	sfunc.Execute(b, c)
 	cfunc.Execute(b, c)
 	return nil, nil
