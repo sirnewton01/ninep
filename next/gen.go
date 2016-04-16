@@ -146,7 +146,7 @@ var b = bytes.Buffer{}
 c.Trace("%v", {{.T.MFunc}})
 t := <- c.Tags
 r := make (chan []byte)
-//c.Trace(":tag %%v, FID %%v", t, c.FID)
+c.Trace(":tag %v, FID %v", t, c.FID)
 Marshal{{.T.MFunc}}Pkt(&b, t, {{.T.MList}})
 c.FromClient <- &RPCCall{b: b.Bytes(), Reply: r}
 bb := <-r
@@ -213,6 +213,7 @@ func emitDecodeString(n string, e *emitter) {
 	emitDecodeInt(l, "l", 2, e)
 	e.UCode.WriteString(fmt.Sprintf("\tif b.Len() < int(l) {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %%d, have %%d\", l, b.Len())\n\treturn\n\t}\n"))
 	e.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n", n))
+	e.UCode.WriteString("\t_ = b.Next(int(l))\n")
 }
 
 func genEncodeStruct(v interface{}, n string, e *emitter) error {
