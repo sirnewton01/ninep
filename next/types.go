@@ -213,6 +213,13 @@ type RopenPkt struct {
 	IOUnit MaxSize
 }
 
+type TclunkPkt struct {
+	OFID  FID
+}
+
+type RclunkPkt struct {
+}
+
 type TreadPkt struct {
 	OFID FID
 	Off  Offset
