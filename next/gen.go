@@ -99,6 +99,7 @@ var (
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
 		{n: "clunk", t: next.TclunkPkt{}, tn: "Tclunk", r: next.RclunkPkt{}, rn: "Rclunk"},
+		{n: "remove", t: next.TremovePkt{}, tn: "Tremove", r: next.RremovePkt{}, rn: "Rremove"},
 		{n: "read", t: next.TreadPkt{}, tn: "Tread", r: next.RreadPkt{}, rn: "Rread"},
 		{n: "write", t: next.TwritePkt{}, tn: "Twrite", r: next.RwritePkt{}, rn: "Rwrite"},
 	}

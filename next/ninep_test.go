@@ -220,6 +220,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRopen(b)
 	case Tclunk:
 		return e.SrvRclunk(b)
+	case Tremove:
+		return e.SrvRremove(b)
 	case Tread:
 		return e.SrvRread(b)
 	case Twrite:
@@ -261,7 +263,16 @@ func (e *echo) Rclunk(f FID) error {
 		return nil
 	}
 	fmt.Printf("clunk(%v)\n", f)
-	return fmt.Errorf("Read: bad FID %v", f)
+	return fmt.Errorf("Clunk: bad FID %v", f)
+}
+func (e *echo) Rremove(f FID) error {
+	switch int(f) {
+	case 2:
+		// Make it fancier, later.
+		return nil
+	}
+	fmt.Printf("remove(%v)\n", f)
+	return fmt.Errorf("Remove: bad FID %v", f)
 }
 func (e *echo) Rread(f FID, o Offset, c Count) ([]byte, error) {
 	switch int(f) {
@@ -371,7 +382,13 @@ func TestTVersion(t *testing.T) {
 	if err := c.CallTclunk(FID(2)); err != nil {
 		t.Fatalf("CallTclunk: want nil, got %v", err)
 	}
-	if err := c.CallTclunk(FID(1)); err == nil {
-		t.Fatalf("CallTclunk: want err, got nil")
+	if err := c.CallTremove(FID(1)); err == nil {
+		t.Fatalf("CallTremove: want err, got nil")
+	}
+	if err := c.CallTremove(FID(2)); err != nil {
+		t.Fatalf("CallTremove: want nil, got %v", err)
+	}
+	if err := c.CallTremove(FID(1)); err == nil {
+		t.Fatalf("CallTremove: want err, got nil")
 	}
 }

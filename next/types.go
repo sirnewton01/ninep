@@ -220,6 +220,13 @@ type TclunkPkt struct {
 type RclunkPkt struct {
 }
 
+type TremovePkt struct {
+	OFID FID
+}
+
+type RremovePkt struct {
+}
+
 type TreadPkt struct {
 	OFID FID
 	Off  Offset
@@ -293,6 +300,7 @@ type NineServer interface {
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
 	Rclunk(FID) error
+	Rremove(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)
 	Rwrite(FID, Offset, Count, []byte) (Count, error)
 }
