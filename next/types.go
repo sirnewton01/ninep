@@ -214,7 +214,7 @@ type RopenPkt struct {
 }
 
 type TclunkPkt struct {
-	OFID  FID
+	OFID FID
 }
 
 type RclunkPkt struct {
@@ -292,6 +292,7 @@ type NineServer interface {
 	Rattach(FID, FID, string, string) (QID, error)
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
+	Rclunk(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)
 	Rwrite(FID, Offset, Count, []byte) (Count, error)
 }

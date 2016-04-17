@@ -52,6 +52,7 @@ type emitter struct {
 	// Encoders always return []byte
 	MParms *bytes.Buffer
 	MList  *bytes.Buffer
+	MLsep  string
 	MCode  *bytes.Buffer
 
 	// Decoders always take []byte as parms.
@@ -97,6 +98,7 @@ var (
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
+		{n: "clunk", t: next.TclunkPkt{}, tn: "Tclunk", r: next.RclunkPkt{}, rn: "Rclunk"},
 		{n: "read", t: next.TreadPkt{}, tn: "Tread", r: next.RreadPkt{}, rn: "Rread"},
 		{n: "write", t: next.TwritePkt{}, tn: "Twrite", r: next.RwritePkt{}, rn: "Rwrite"},
 	}
@@ -114,7 +116,7 @@ copy(b.Bytes(), []byte{uint8(l), uint8(l>>8), uint8(l>>16), uint8(l>>24)})
 return
 }
 `))
-	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}}Pkt (b *bytes.Buffer) ({{.URet}}, t Tag, err error) {
+	ufunc = template.Must(template.New("mr").Parse(`func Unmarshal{{.UFunc}}Pkt (b *bytes.Buffer) ({{.URet}} t Tag, err error) {
 var u [8]uint8
 var l uint64
 if _, err = b.Read(u[:2]); err != nil {
@@ -131,11 +133,10 @@ return
 }
 `))
 	sfunc = template.Must(template.New("s").Parse(`func (s *Server) Srv{{.R.UFunc}}(b*bytes.Buffer) (err error) {
-	{{.T.MList}}, t, err := Unmarshal{{.T.MFunc}}Pkt(b)
+	{{.T.MList}}{{.T.MLsep}} t, err := Unmarshal{{.T.MFunc}}Pkt(b)
 	//if err != nil {
 	//}
-	{{.R.MList}}, err := s.NS.{{.R.MFunc}}({{.T.MList}})
-if err != nil {
+	if {{.R.MList}}{{.R.MLsep}} err := s.NS.{{.R.MFunc}}({{.T.MList}}); err != nil {
 	MarshalRerrorPkt(b, t, fmt.Sprintf("%v", err))
 } else {
 	Marshal{{.R.MFunc}}Pkt(b, t, {{.R.MList}})
@@ -144,7 +145,7 @@ if err != nil {
 }
 `))
 	cfunc = template.Must(template.New("s").Parse(`
-func (c *Client)Call{{.T.MFunc}} ({{.T.MParms}}) ({{.R.URet}}, err error) {
+func (c *Client)Call{{.T.MFunc}} ({{.T.MParms}}) ({{.R.URet}} err error) {
 var b = bytes.Buffer{}
 c.Trace("%v", {{.T.MFunc}})
 t := <- c.Tags
@@ -156,13 +157,13 @@ bb := <-r
 if MType(bb[4]) == Rerror {
 	s, _, err := UnmarshalRerrorPkt(bytes.NewBuffer(bb[5:]))
 	if err != nil {
-		return {{.R.UList}}, err
+		return {{.R.UList}} err
 	}
-	return {{.R.UList}}, fmt.Errorf("%v", s)
+	return {{.R.UList}} fmt.Errorf("%v", s)
 } else {
-	{{.R.MList}}, _, err = Unmarshal{{.R.UFunc}}Pkt(bytes.NewBuffer(bb[5:]))
+	{{.R.MList}}{{.R.MLsep}} _, err = Unmarshal{{.R.UFunc}}Pkt(bytes.NewBuffer(bb[5:]))
 }
-return {{.R.UList}}, err
+return {{.R.UList}} err
 }
 `))
 )
@@ -173,8 +174,8 @@ func nodebug(string, ...interface{}) {
 func newCall(p *pack) *call {
 	c := &call{}
 	// We set inBWrite to true because the prologue marshal code sets up some default writes to b
-	c.T = &emitter{"T" + p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
-	c.R = &emitter{"R" + p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.T = &emitter{"T" + p.n, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, p.tn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
+	c.R = &emitter{"R" + p.n, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, p.rn, &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, true}
 	return c
 }
 
@@ -388,14 +389,13 @@ func tn(f reflect.Value) string {
 // genParms writes the parameters for declarations (name and type)
 // a list of names (for calling the encoder)
 func genParms(v interface{}, n string, e *emitter) error {
-	comma := "" // ", "
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
-		e.MList.WriteString(comma + fn)
-		e.MParms.WriteString(comma + fn + " " + tn(f))
-		comma = ", "
+		e.MList.WriteString(e.MLsep + fn)
+		e.MParms.WriteString(e.MLsep + fn + " " + tn(f))
+		e.MLsep = ", "
 	}
 	return nil
 }
@@ -403,14 +403,12 @@ func genParms(v interface{}, n string, e *emitter) error {
 // genRets writes the rets for declarations (name and type)
 // a list of names
 func genRets(v interface{}, n string, e *emitter) error {
-	comma := ""
 	t := reflect.ValueOf(v)
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		fn := t.Type().Field(i).Name
-		e.UList.WriteString(comma + fn)
-		e.URet.WriteString(comma + fn + " " + tn(f))
-		comma = ", "
+		e.UList.WriteString(fn + ", ")
+		e.URet.WriteString(fn + " " + tn(f) + ", ")
 	}
 	return nil
 }

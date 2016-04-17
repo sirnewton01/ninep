@@ -218,6 +218,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRwalk(b)
 	case Topen:
 		return e.SrvRopen(b)
+	case Tclunk:
+		return e.SrvRclunk(b)
 	case Tread:
 		return e.SrvRread(b)
 	case Twrite:
@@ -251,6 +253,15 @@ func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 func (e *echo) Ropen(fid FID, mode Mode) (QID, MaxSize, error) {
 	fmt.Printf("open(%v, %v\n", fid, mode)
 	return QID{}, 4000, nil
+}
+func (e *echo) Rclunk(f FID) error {
+	switch int(f) {
+	case 2:
+		// Make it fancier, later.
+		return nil
+	}
+	fmt.Printf("clunk(%v)\n", f)
+	return fmt.Errorf("Read: bad FID %v", f)
 }
 func (e *echo) Rread(f FID, o Offset, c Count) ([]byte, error) {
 	switch int(f) {
@@ -357,4 +368,10 @@ func TestTVersion(t *testing.T) {
 	}
 	t.Logf("Read is %v", s)
 
+	if err := c.CallTclunk(FID(2)); err != nil {
+		t.Fatalf("CallTclunk: want nil, got %v", err)
+	}
+	if err := c.CallTclunk(FID(1)); err == nil {
+		t.Fatalf("CallTclunk: want err, got nil")
+	}
 }
