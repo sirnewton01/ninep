@@ -220,6 +220,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRopen(b)
 	case Tread:
 		return e.SrvRread(b)
+	case Twrite:
+		return e.SrvRwrite(b)
 	}
 	// This has been tested by removing Attach from the switch.
 	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
@@ -253,10 +255,19 @@ func (e *echo) Ropen(fid FID, mode Mode) (QID, MaxSize, error) {
 func (e *echo) Rread(f FID, o Offset, c Count) ([]byte, error) {
 	switch int(f) {
 	case 2:
-	// Make it fancier, later.
-	return []byte("HI"), nil
+		// Make it fancier, later.
+		return []byte("HI"), nil
 	}
 	return nil, fmt.Errorf("Read: bad FID %v", f)
+}
+
+func (e *echo) Rwrite(f FID, o Offset, c Count, b []byte) (Count, error) {
+	switch int(f) {
+	case 2:
+		// Make it fancier, later.
+		return c, nil
+	}
+	return -1, fmt.Errorf("Write: bad FID %v", f)
 }
 func TestTVersion(t *testing.T) {
 	sr, cw := io.Pipe()
@@ -339,5 +350,11 @@ func TestTVersion(t *testing.T) {
 		t.Fatalf("CallTread: want nil, got %v", err)
 	}
 	t.Logf("Read is %v", d)
+
+	s, err := c.CallTwrite(FID(2), 0, 5, d)
+	if err != nil {
+		t.Fatalf("CallTread: want nil, got %v", err)
+	}
+	t.Logf("Read is %v", s)
 
 }

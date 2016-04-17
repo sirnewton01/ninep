@@ -215,12 +215,23 @@ type RopenPkt struct {
 
 type TreadPkt struct {
 	OFID FID
-	Off Offset
-	Len Count
+	Off  Offset
+	Len  Count
 }
 
 type RreadPkt struct {
 	Data []byte
+}
+
+type TwritePkt struct {
+	OFID FID
+	Off  Offset
+	TLen Count
+	Data []byte
+}
+
+type RwritePkt struct {
+	RLen Count
 }
 
 type RerrorPkt struct {
@@ -275,4 +286,5 @@ type NineServer interface {
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
 	Rread(FID, Offset, Count) ([]byte, error)
+	Rwrite(FID, Offset, Count, []byte) (Count, error)
 }

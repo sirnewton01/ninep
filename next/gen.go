@@ -98,6 +98,7 @@ var (
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
 		{n: "read", t: next.TreadPkt{}, tn: "Tread", r: next.RreadPkt{}, rn: "Rread"},
+		{n: "write", t: next.TwritePkt{}, tn: "Twrite", r: next.RwritePkt{}, rn: "Rwrite"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
@@ -348,7 +349,7 @@ func genDecodeData(v interface{}, n string, e *emitter) error {
 		emitDecodeInt(v, n, 1, e)
 	case reflect.Uint16:
 		emitDecodeInt(v, n, 2, e)
-	case reflect.Uint32:
+	case reflect.Uint32, reflect.Int32:
 		emitDecodeInt(v, n, 4, e)
 	case reflect.Uint64:
 		emitDecodeInt(v, n, 8, e)
@@ -430,7 +431,6 @@ func genMsgRPC(b io.Writer, p *pack) (*call, error) {
 	if err := genDecodeStruct(p.r, "", c.R); err != nil {
 		log.Fatalf("%v", err)
 	}
-
 
 	if err := genEncodeStruct(p.t, "", c.T); err != nil {
 		log.Fatalf("%v", err)
