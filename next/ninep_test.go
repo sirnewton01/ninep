@@ -251,7 +251,14 @@ func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 
 func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
-	return []QID{QID{0, 1, 2}, QID{6, 7, 8}}, nil
+	if len(paths) > 1 {
+		return nil, fmt.Errorf("%v: No such file or directory", paths)
+	}
+	switch paths[0] {
+	case "null":
+		return []QID{QID{Type: 0, Version: 0, Path: 0xaa55}}, nil
+	}
+	return nil, fmt.Errorf("%v: No such file or directory", paths)
 }
 
 func (e *echo) Ropen(fid FID, mode Mode) (QID, MaxSize, error) {
@@ -367,8 +374,14 @@ func TestTVersion(t *testing.T) {
 	}
 	t.Logf("Attach is %v", a)
 	w, err := c.CallTwalk(0, 1, []string{"hi", "there"})
+	if err == nil {
+		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want err, got QIDS %v", w)
+	}
+	t.Logf("Walk is %v", w)
+
+	w, err = c.CallTwalk(0, 1, []string{"null"})
 	if err != nil {
-		t.Fatalf("CallTattach: want nil, got %v", err)
+		t.Fatalf("CallTwalk(0,1,\"null\"): want nil, got err %v", err)
 	}
 	t.Logf("Walk is %v", w)
 
