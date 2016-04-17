@@ -227,6 +227,14 @@ type TremovePkt struct {
 type RremovePkt struct {
 }
 
+type TstatPkt struct {
+	OFID FID
+}
+
+type RstatPkt struct {
+	D Dir
+}
+
 type TreadPkt struct {
 	OFID FID
 	Off  Offset
@@ -299,6 +307,7 @@ type NineServer interface {
 	Rattach(FID, FID, string, string) (QID, error)
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
+	Rstat(FID) (Dir, error)
 	Rclunk(FID) error
 	Rremove(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)

@@ -220,6 +220,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRopen(b)
 	case Tclunk:
 		return e.SrvRclunk(b)
+	case Tstat:
+		return e.SrvRstat(b)
 	case Tremove:
 		return e.SrvRremove(b)
 	case Tread:
@@ -264,6 +266,15 @@ func (e *echo) Rclunk(f FID) error {
 	}
 	fmt.Printf("clunk(%v)\n", f)
 	return fmt.Errorf("Clunk: bad FID %v", f)
+}
+func (e *echo) Rstat(f FID) (Dir, error) {
+	switch int(f) {
+	case 2:
+		// Make it fancier, later.
+		return Dir{}, nil
+	}
+	fmt.Printf("stat(%v)\n", f)
+	return Dir{}, fmt.Errorf("Stat: bad FID %v", f)
 }
 func (e *echo) Rremove(f FID) error {
 	switch int(f) {
@@ -390,5 +401,14 @@ func TestTVersion(t *testing.T) {
 	}
 	if err := c.CallTremove(FID(1)); err == nil {
 		t.Fatalf("CallTremove: want err, got nil")
+	}
+	st, err := c.CallTstat(FID(2))
+	if err != nil {
+		t.Fatalf("CallTstat: want nil, got %v", err)
+	}
+	t.Logf("Stat: Got %v", st)
+
+	if _, err := c.CallTstat(FID(1)); err == nil {
+		t.Fatalf("CallTstat: want err, got nil")
 	}
 }
