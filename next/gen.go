@@ -97,6 +97,7 @@ var (
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
+		{n: "read", t: next.TreadPkt{}, tn: "Tread", r: next.RreadPkt{}, rn: "Rread"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
@@ -268,6 +269,14 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 		e.MCode.WriteString("\t})\n")
 		e.inBWrite = false
 		e.MCode.WriteString("}\n")
+	case "[]byte", "[]uint8":
+		var u uint32
+		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 4, e)
+		if e.inBWrite {
+			e.MCode.WriteString("\t})\n")
+			e.inBWrite = false
+		}
+		e.MCode.WriteString(fmt.Sprintf("\tb.Write(%v)\n", n))
 	default:
 		log.Printf("genEncodeSlice: Can't handle slice of %T", v)
 	}
@@ -293,6 +302,11 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 		e.UCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
 		genDecodeData(next.QID{}, n+"[i]", e)
 		e.UCode.WriteString("}\n")
+	case "[]byte", "[]uint8":
+		var u uint64
+		emitDecodeInt(u, "l", 4, e)
+		e.UCode.WriteString(fmt.Sprintf("\t%v = b.Bytes()[:l]\n", n))
+		e.UCode.WriteString("\t_ = b.Next(int(l))\n")
 	default:
 		log.Printf("genEncodeSlice: Can't handle slice of %v", t)
 	}
@@ -307,7 +321,7 @@ func genEncodeData(v interface{}, n string, e *emitter) error {
 		emitEncodeInt(v, n, 1, e)
 	case reflect.Uint16:
 		emitEncodeInt(v, n, 2, e)
-	case reflect.Uint32:
+	case reflect.Uint32, reflect.Int32:
 		emitEncodeInt(v, n, 4, e)
 	case reflect.Uint64:
 		emitEncodeInt(v, n, 8, e)

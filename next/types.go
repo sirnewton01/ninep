@@ -213,6 +213,16 @@ type RopenPkt struct {
 	IOUnit MaxSize
 }
 
+type TreadPkt struct {
+	OFID FID
+	Off Offset
+	Len Count
+}
+
+type RreadPkt struct {
+	Data []byte
+}
+
 type RerrorPkt struct {
 	Error string
 }
@@ -264,4 +274,5 @@ type NineServer interface {
 	Rattach(FID, FID, string, string) (QID, error)
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
+	Rread(FID, Offset, Count) ([]byte, error)
 }
