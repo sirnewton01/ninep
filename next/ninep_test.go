@@ -202,6 +202,7 @@ func TestTags(t *testing.T) {
 type echo struct {
 	*Server
 	Versioned bool
+	qids      map[FID]QID
 }
 
 // Dispatch dispatches request to different functions.
@@ -250,7 +251,7 @@ func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 }
 
 func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
-	fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
+	//fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
 	if len(paths) > 1 {
 		return nil, fmt.Errorf("%v: No such file or directory", paths)
 	}
@@ -262,7 +263,7 @@ func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
 }
 
 func (e *echo) Ropen(fid FID, mode Mode) (QID, MaxSize, error) {
-	fmt.Printf("open(%v, %v\n", fid, mode)
+	//fmt.Printf("open(%v, %v\n", fid, mode)
 	return QID{}, 4000, nil
 }
 func (e *echo) Rclunk(f FID) error {
@@ -271,7 +272,7 @@ func (e *echo) Rclunk(f FID) error {
 		// Make it fancier, later.
 		return nil
 	}
-	fmt.Printf("clunk(%v)\n", f)
+	//fmt.Printf("clunk(%v)\n", f)
 	return fmt.Errorf("Clunk: bad FID %v", f)
 }
 func (e *echo) Rstat(f FID) (Dir, error) {
@@ -280,7 +281,7 @@ func (e *echo) Rstat(f FID) (Dir, error) {
 		// Make it fancier, later.
 		return Dir{}, nil
 	}
-	fmt.Printf("stat(%v)\n", f)
+	//fmt.Printf("stat(%v)\n", f)
 	return Dir{}, fmt.Errorf("Stat: bad FID %v", f)
 }
 func (e *echo) Rremove(f FID) error {
@@ -289,7 +290,7 @@ func (e *echo) Rremove(f FID) error {
 		// Make it fancier, later.
 		return nil
 	}
-	fmt.Printf("remove(%v)\n", f)
+	//fmt.Printf("remove(%v)\n", f)
 	return fmt.Errorf("Remove: bad FID %v", f)
 }
 func (e *echo) Rread(f FID, o Offset, c Count) ([]byte, error) {
@@ -309,7 +310,7 @@ func (e *echo) Rwrite(f FID, o Offset, c Count, b []byte) (Count, error) {
 	}
 	return -1, fmt.Errorf("Write: bad FID %v", f)
 }
-func TestTVersion(t *testing.T) {
+func TestTManyRPCs(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 	c, err := NewClient(func(c *Client) error {
@@ -318,7 +319,7 @@ func TestTVersion(t *testing.T) {
 	},
 		func(c *Client) error {
 			c.Msize = 8192
-			c.Trace = t.Logf
+			//c.Trace = t.Logf
 			return nil
 		})
 	if err != nil {
@@ -329,7 +330,7 @@ func TestTVersion(t *testing.T) {
 	e := &echo{}
 	e.Server, err = NewServer(func(s *Server) error {
 		s.FromNet, s.ToNet = sr, sw
-		s.Trace = t.Logf
+		//s.Trace = t.Logf
 		s.NS = e
 		return nil
 	})
@@ -337,6 +338,48 @@ func TestTVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer: want nil, got %v", err)
 	}
+
+	e.qids = make(map[FID]QID)
+
+	e.Start()
+	for i := 0; i < 256*1024; i++ {
+		_, _, err := c.CallTversion(8000, "9P2000")
+		if err != nil {
+			t.Fatalf("CallTversion: want nil, got %v", err)
+		}
+	}
+}
+
+func TestTVersion(t *testing.T) {
+	sr, cw := io.Pipe()
+	cr, sw := io.Pipe()
+	c, err := NewClient(func(c *Client) error {
+		c.FromNet, c.ToNet = cr, cw
+		return nil
+	},
+		func(c *Client) error {
+			c.Msize = 8192
+			//c.Trace = t.Logf
+			return nil
+		})
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	t.Logf("Client is %v", c.String())
+
+	e := &echo{}
+	e.Server, err = NewServer(func(s *Server) error {
+		s.FromNet, s.ToNet = sr, sw
+		//s.Trace = t.Logf
+		s.NS = e
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("NewServer: want nil, got %v", err)
+	}
+
+	e.qids = make(map[FID]QID)
 
 	e.Start()
 	// If things really go to hell, change this to true.
@@ -424,4 +467,44 @@ func TestTVersion(t *testing.T) {
 	if _, err := c.CallTstat(FID(1)); err == nil {
 		t.Fatalf("CallTstat: want err, got nil")
 	}
+}
+
+func BenchmarkNull(b *testing.B) {
+
+	sr, cw := io.Pipe()
+	cr, sw := io.Pipe()
+	c, err := NewClient(func(c *Client) error {
+		c.FromNet, c.ToNet = cr, cw
+		return nil
+	},
+		func(c *Client) error {
+			c.Msize = 8192
+			return nil
+		})
+	if err != nil {
+		b.Fatalf("%v", err)
+	}
+	b.Logf("Client is %v", c.String())
+
+	e := &echo{}
+	e.Server, err = NewServer(func(s *Server) error {
+		s.FromNet, s.ToNet = sr, sw
+		s.NS = e
+		return nil
+	})
+
+	if err != nil {
+		b.Fatalf("NewServer: want nil, got %v", err)
+	}
+
+	e.qids = make(map[FID]QID)
+
+	e.Start()
+	b.Logf("%d iterations", b.N)
+	for i := 0; i < b.N; i++ {
+		if _, err := c.CallTread(FID(2), 0, 5); err != nil {
+			b.Fatalf("CallTread: want nil, got %v", err)
+		}
+	}
+
 }

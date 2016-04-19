@@ -47,14 +47,14 @@ var (
 	}
 )
 
-func noTrace(string, ...interface{}) {}
-
 // GetTag gets a tag to be used to identify a message.
 func (c *Client) GetTag() Tag {
 	t := <-c.Tags
-	runtime.SetFinalizer(&t, func(t *Tag) {
-		c.Tags <- *t
-	})
+	if false {
+		runtime.SetFinalizer(&t, func(t *Tag) {
+			c.Tags <- *t
+		})
+	}
 	return t
 }
 
@@ -72,7 +72,9 @@ func (c *Client) readNetPackets() {
 	}
 	defer c.FromNet.Close()
 	defer close(c.FromServer)
-	c.Trace("Starting readNetPackets")
+	if c.Trace != nil {
+		c.Trace("Starting readNetPackets")
+	}
 	for !c.Dead {
 		l := make([]byte, 7)
 		if n, err := c.FromNet.Read(l); err != nil || n < 7 {
@@ -88,7 +90,9 @@ func (c *Client) readNetPackets() {
 			c.Dead = true
 			return
 		}
-		c.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
+		if c.Trace != nil {
+			c.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
+		}
 		c.FromServer <- &RPCReply{b: b.Bytes()}
 	}
 
@@ -99,11 +103,18 @@ func (c *Client) IO() {
 		for {
 			r := <-c.FromClient
 			t := <-c.Tags
+			if c.Trace != nil {
+				c.Trace(fmt.Sprintf("Tag for request is %v", t))
+			}
 			r.b[5] = uint8(t)
 			r.b[6] = uint8(t >> 8)
-			//panic(fmt.Sprintf("Tag for request is %v", t))
-			c.RPC[int(t)] = r
-			c.Trace("Write %v to ToNet", r.b)
+			if c.Trace != nil {
+				c.Trace(fmt.Sprintf("Tag for request is %v", t))
+			}
+			c.RPC[int(t)-1] = r
+			if c.Trace != nil {
+				c.Trace("Write %v to ToNet", r.b)
+			}
 			if _, err := c.ToNet.Write(r.b); err != nil {
 				c.Dead = true
 				log.Fatalf("Write to server: %v", err)
@@ -114,10 +125,15 @@ func (c *Client) IO() {
 
 	for {
 		r := <-c.FromServer
-		c.Trace("Read %v FromServer", r.b)
+		if c.Trace != nil {
+			c.Trace("Read %v FromServer", r.b)
+		}
 		t := Tag(r.b[5]) | Tag(r.b[6])<<8
-		fmt.Printf(fmt.Sprintf("Tag for reply is %v", t))
-		c.RPC[t].Reply <- r.b
+		if c.Trace != nil {
+			c.Trace(fmt.Sprintf("Tag for reply is %v", t))
+		}
+		c.RPC[t-1].Reply <- r.b
+		c.Tags <- t
 	}
 }
 
@@ -131,7 +147,7 @@ func (s *Server) String() string {
 }
 
 func NewClient(opts ...ClientOpt) (*Client, error) {
-	var c = &Client{Trace: noTrace}
+	var c = &Client{}
 
 	c.Tags = make(chan Tag, NumTags)
 	for i := 1; i < int(NOTAG); i++ {
@@ -144,7 +160,7 @@ func NewClient(opts ...ClientOpt) (*Client, error) {
 			return nil, err
 		}
 	}
-	c.FromClient = make(chan *RPCCall)
+	c.FromClient = make(chan *RPCCall, NumTags)
 	c.FromServer = make(chan *RPCReply)
 	go c.IO()
 	go c.readNetPackets()
@@ -158,7 +174,9 @@ func (s *Server) readNetPackets() {
 	}
 	defer s.FromNet.Close()
 	defer s.ToNet.Close()
-	s.Trace("Starting readNetPackets")
+	if s.Trace != nil {
+		s.Trace("Starting readNetPackets")
+	}
 	for !s.Dead {
 		l := make([]byte, 7)
 		if n, err := s.FromNet.Read(l); err != nil || n < 7 {
@@ -175,19 +193,25 @@ func (s *Server) readNetPackets() {
 			s.Dead = true
 			return
 		}
-		s.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
+		if s.Trace != nil {
+			s.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
+		}
 		//panic(fmt.Sprintf("packet is %v", b.Bytes()[:]))
 		if err := s.NS.Dispatch(b, t); err != nil {
 			log.Printf("%v: %v", RPCNames[MType(l[4])], err)
 		}
-		s.Trace("readNetPackets: Write %v back", b)
+		if s.Trace != nil {
+			s.Trace("readNetPackets: Write %v back", b)
+		}
 		amt, err := s.ToNet.Write(b.Bytes())
 		if err != nil {
 			log.Printf("readNetPackets: write error: %v", err)
 			s.Dead = true
 			return
 		}
-		s.Trace("Returned %v amt %v", b, amt)
+		if s.Trace != nil {
+			s.Trace("Returned %v amt %v", b, amt)
+		}
 	}
 
 }
@@ -197,7 +221,7 @@ func (s *Server) Start() {
 }
 
 func NewServer(opts ...ServerOpt) (*Server, error) {
-	s := &Server{Trace: noTrace}
+	s := &Server{}
 	s.Replies = make(chan RPCReply, NumTags)
 	for _, o := range opts {
 		if err := o(s); err != nil {

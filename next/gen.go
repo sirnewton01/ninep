@@ -149,10 +149,10 @@ return
 	cfunc = template.Must(template.New("s").Parse(`
 func (c *Client)Call{{.T.MFunc}} ({{.T.MParms}}) ({{.R.URet}} err error) {
 var b = bytes.Buffer{}
-c.Trace("%v", {{.T.MFunc}})
-t := <- c.Tags
+if c.Trace != nil {c.Trace("%v", {{.T.MFunc}})}
+t := Tag(0)
 r := make (chan []byte)
-c.Trace(":tag %v, FID %v", t, c.FID)
+if c.Trace != nil { c.Trace(":tag %v, FID %v", t, c.FID)}
 Marshal{{.T.MFunc}}Pkt(&b, t, {{.T.MList}})
 c.FromClient <- &RPCCall{b: b.Bytes(), Reply: r}
 bb := <-r
