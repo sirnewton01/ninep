@@ -205,40 +205,6 @@ type echo struct {
 	qids      map[FID]QID
 }
 
-// Dispatch dispatches request to different functions.
-// We could do this with interface assertions and such a la rsc/fuse
-// but most people I talked do disliked that. So we don't. If you want
-// to make things optional, just define the ones you want to implement in this case.
-func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
-	switch t {
-	case Tversion:
-		return e.SrvRversion(b)
-	case Tattach:
-		return e.SrvRattach(b)
-	case Tflush:
-		return e.SrvRflush(b)
-	case Twalk:
-		return e.SrvRwalk(b)
-	case Topen:
-		return e.SrvRopen(b)
-	case Tclunk:
-		return e.SrvRclunk(b)
-	case Tstat:
-		return e.SrvRstat(b)
-	case Twstat:
-		return e.SrvRwstat(b)
-	case Tremove:
-		return e.SrvRremove(b)
-	case Tread:
-		return e.SrvRread(b)
-	case Twrite:
-		return e.SrvRwrite(b)
-	}
-	// This has been tested by removing Attach from the switch.
-	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
-	return nil
-}
-
 func (e *echo) Rversion(msize MaxSize, version string) (MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
