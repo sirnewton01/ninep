@@ -223,6 +223,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRclunk(b)
 	case Tstat:
 		return e.SrvRstat(b)
+	case Twstat:
+		return e.SrvRwstat(b)
 	case Tremove:
 		return e.SrvRremove(b)
 	case Tread:
@@ -287,6 +289,15 @@ func (e *echo) Rstat(f FID) (Dir, error) {
 	}
 	//fmt.Printf("stat(%v)\n", f)
 	return Dir{}, fmt.Errorf("Stat: bad FID %v", f)
+}
+func (e *echo) Rwstat(f FID, d Dir) error {
+	switch int(f) {
+	case 2:
+		// Make it fancier, later.
+		return nil
+	}
+	//fmt.Printf("stat(%v)\n", f)
+	return fmt.Errorf("Wstat: bad FID %v", f)
 }
 func (e *echo) Rremove(f FID) error {
 	switch int(f) {
@@ -354,7 +365,7 @@ func TestTManyRPCs(t *testing.T) {
 	}
 }
 
-func TestTVersion(t *testing.T) {
+func TestTMessages(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 	c, err := NewClient(func(c *Client) error {
@@ -470,6 +481,13 @@ func TestTVersion(t *testing.T) {
 
 	if _, err := c.CallTstat(FID(1)); err == nil {
 		t.Fatalf("CallTstat: want err, got nil")
+	}
+	if err := c.CallTwstat(FID(2), Dir{}); err != nil {
+		t.Fatalf("CallTwstat: want nil, got %v", err)
+	}
+
+	if err := c.CallTwstat(FID(1), Dir{}); err == nil {
+		t.Fatalf("CallTwstat: want err, got nil")
 	}
 }
 

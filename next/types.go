@@ -161,7 +161,6 @@ type Dir struct {
 	User    string // owner name
 	Group   string // group name
 	ModUser string // name of the last user that modified the file
-	FID     uint64
 }
 
 // N.B. In all packets, the wire order is assumed to be the order in which you
@@ -214,10 +213,10 @@ type RopenPkt struct {
 }
 
 type TcreatePkt struct {
-	OFID  FID
-	Name string
+	OFID       FID
+	Name       string
 	CreatePerm Perm
-	Omode Mode
+	Omode      Mode
 }
 
 type RcreatePkt struct {
@@ -245,6 +244,14 @@ type TstatPkt struct {
 
 type RstatPkt struct {
 	D Dir
+}
+
+type TwstatPkt struct {
+	OFID FID
+	D    Dir
+}
+
+type RwstatPkt struct {
 }
 
 type TreadPkt struct {
@@ -321,6 +328,7 @@ type NineServer interface {
 	Ropen(FID, Mode) (QID, MaxSize, error)
 	Rcreate(FID, string, Perm, Mode) (QID, MaxSize, error)
 	Rstat(FID) (Dir, error)
+	Rwstat(FID, Dir) error
 	Rclunk(FID) error
 	Rremove(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)
