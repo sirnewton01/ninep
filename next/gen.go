@@ -98,6 +98,7 @@ var (
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
+		{n: "create", t: next.TcreatePkt{}, tn: "Tcreate", r: next.RcreatePkt{}, rn: "Rcreate"},
 		{n: "stat", t: next.TstatPkt{}, tn: "Tstat", r: next.RstatPkt{}, rn: "Rstat"},
 		{n: "clunk", t: next.TclunkPkt{}, tn: "Tclunk", r: next.RclunkPkt{}, rn: "Rclunk"},
 		{n: "remove", t: next.TremovePkt{}, tn: "Tremove", r: next.RremovePkt{}, rn: "Rremove"},

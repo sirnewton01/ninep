@@ -213,6 +213,18 @@ type RopenPkt struct {
 	IOUnit MaxSize
 }
 
+type TcreatePkt struct {
+	OFID  FID
+	Name string
+	CreatePerm Perm
+	Omode Mode
+}
+
+type RcreatePkt struct {
+	OQID   QID
+	IOUnit MaxSize
+}
+
 type TclunkPkt struct {
 	OFID FID
 }
@@ -307,6 +319,7 @@ type NineServer interface {
 	Rattach(FID, FID, string, string) (QID, error)
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
+	Rcreate(FID, string, Perm, Mode) (QID, MaxSize, error)
 	Rstat(FID) (Dir, error)
 	Rclunk(FID) error
 	Rremove(FID) error

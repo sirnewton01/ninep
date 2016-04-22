@@ -266,6 +266,10 @@ func (e *echo) Ropen(fid FID, mode Mode) (QID, MaxSize, error) {
 	//fmt.Printf("open(%v, %v\n", fid, mode)
 	return QID{}, 4000, nil
 }
+func (e *echo) Rcreate(fid FID, name string, perm Perm, mode Mode) (QID, MaxSize, error) {
+	//fmt.Printf("open(%v, %v\n", fid, mode)
+	return QID{}, 5000, nil
+}
 func (e *echo) Rclunk(f FID) error {
 	switch int(f) {
 	case 2:
