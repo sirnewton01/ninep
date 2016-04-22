@@ -192,6 +192,14 @@ type RattachPkt struct {
 	QID QID
 }
 
+type TflushPkt struct {
+	RFID  FID
+	OFID  FID
+}
+
+type RflushPkt struct {
+}
+
 type TwalkPkt struct {
 	SFID   FID
 	NewFID FID
@@ -333,4 +341,5 @@ type NineServer interface {
 	Rremove(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)
 	Rwrite(FID, Offset, Count, []byte) (Count, error)
+	Rflush(FID, FID) (error)
 }

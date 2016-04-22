@@ -215,6 +215,8 @@ func (e *echo) Dispatch(b *bytes.Buffer, t MType) error {
 		return e.SrvRversion(b)
 	case Tattach:
 		return e.SrvRattach(b)
+	case Tflush:
+		return e.SrvRflush(b)
 	case Twalk:
 		return e.SrvRwalk(b)
 	case Topen:
@@ -250,6 +252,13 @@ func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 		return QID{}, fmt.Errorf("Attach: Version must be done first")
 	}
 	return QID{}, nil
+}
+
+func (e *echo) Rflush(FID, FID) (error) {
+	if !e.Versioned {
+		return fmt.Errorf("Attach: Version must be done first")
+	}
+	return nil
 }
 
 func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {

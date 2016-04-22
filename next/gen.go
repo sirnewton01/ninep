@@ -96,6 +96,7 @@ var (
 		{n: "error", t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
 		{n: "version", t: next.TversionPkt{}, tn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
 		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
+		{n: "flush", t: next.TflushPkt{}, tn: "Tflush", r: next.RflushPkt{}, rn: "Rflush"},
 		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
 		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
 		{n: "create", t: next.TcreatePkt{}, tn: "Tcreate", r: next.RcreatePkt{}, rn: "Rcreate"},
