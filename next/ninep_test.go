@@ -254,7 +254,7 @@ func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 	return QID{}, nil
 }
 
-func (e *echo) Rflush(f FID, t FID) (error) {
+func (e *echo) Rflush(f FID, t FID) error {
 	if !e.Versioned {
 		return fmt.Errorf("Attach: Version must be done first")
 	}
