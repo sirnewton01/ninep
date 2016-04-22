@@ -254,11 +254,16 @@ func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
 	return QID{}, nil
 }
 
-func (e *echo) Rflush(FID, FID) (error) {
+func (e *echo) Rflush(f FID, t FID) (error) {
 	if !e.Versioned {
 		return fmt.Errorf("Attach: Version must be done first")
 	}
-	return nil
+	switch int(f) {
+	case 2:
+		// Make it fancier, later.
+		return nil
+	}
+	return fmt.Errorf("Read: bad FID %v", f)
 }
 
 func (e *echo) Rwalk(fid FID, newfid FID, paths []string) ([]QID, error) {
@@ -497,6 +502,13 @@ func TestTMessages(t *testing.T) {
 
 	if err := c.CallTwstat(FID(1), Dir{}); err == nil {
 		t.Fatalf("CallTwstat: want err, got nil")
+	}
+	if err := c.CallTflush(FID(2), FID(3)); err != nil {
+		t.Fatalf("CallTflush: want nil, got %v", err)
+	}
+
+	if err := c.CallTflush(FID(1), FID(3)); err == nil {
+		t.Fatalf("CallTflush: want err, got nil")
 	}
 }
 
