@@ -13,10 +13,18 @@ import (
 )
 
 // Dispatch dispatches request to different functions.
+// It's also the the first place we try to establish server semantics.
 // We could do this with interface assertions and such a la rsc/fuse
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
-func (s Server) Dispatch(b *bytes.Buffer, t rpc.MType) error {
+func (s FileServer) Dispatch(b *bytes.Buffer, t rpc.MType) error {
+	switch t {
+	case rpc.Tversion:
+	default:
+		if !s.versioned {
+			rpc.ServerError(b, fmt.Sprintf("Dispatch: %v not allowed before Tversion", rpc.RPCNames[t]))
+		}
+	}
 	switch t {
 	case rpc.Tversion:
 		return s.SrvRversion(b)
