@@ -406,7 +406,7 @@ func TestTMessages(t *testing.T) {
 	e := &echo{}
 	e.Server, err = NewServer(e, e, func(s *Server) error {
 		s.FromNet, s.ToNet = sr, sw
-		//s.Trace = t.Logf
+		s.Trace = t.Logf
 		s.NS = e
 		return nil
 	})
@@ -433,6 +433,7 @@ func TestTMessages(t *testing.T) {
 		t.Fatalf("CallTattach: want err, got nil")
 	}
 	t.Logf("CallTattach: wanted an error and got %v", err)
+		t.Fatalf("Quit early")
 
 	m, v, err := c.CallTversion(8000, "9p3000")
 	if err == nil {
