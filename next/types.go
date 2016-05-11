@@ -5,6 +5,8 @@
 package next
 
 import (
+	"sync"
+
 	rpc "github.com/rminnich/ninep/rpc"
 )
 
@@ -18,11 +20,28 @@ import (
 type File struct {
 }
 
+
+/*
+// A FileOp is a function to call, an abort channel, and a reply channel
+type FileOp struct {
+	f func() error
+	abort chan abort
+	reply chan 
+}
+ */
+
+// A service is a closure which returns an error or nil.
+// It writes its result down the provided channel.
+// It looks for flushes on the flushchan before doing its
+// function, and will respond to all flushes while any are pending.
+type Service func (func() error, chan rpc.FID)
+
 // Server maintains file system server state. This is inclusive of RPC
 // server state plus more. In our case when we walk to a fid we kick
 // off a goroutine to manage it. As a result we need a map of Tag to FID
 // so we know what to do about Tflush.
 type FileServer struct {
+	mu sync.Mutex
 	rpc.Server
 	versioned bool
 	// Files we have walked to. For each FID, there is a goroutine
