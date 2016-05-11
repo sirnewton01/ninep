@@ -150,7 +150,7 @@ return
 }
 `))
 	cfunc = template.Must(template.New("s").Parse(`
-func (c *Client)Call{{.T.MFunc}} (n Server, {{.T.MParms}}) ({{.R.URet}} err error) {
+func (c *Client)Call{{.T.MFunc}} ({{.T.MParms}}) ({{.R.URet}} err error) {
 var b = bytes.Buffer{}
 if c.Trace != nil {c.Trace("%v", {{.T.MFunc}})}
 t := Tag(0)

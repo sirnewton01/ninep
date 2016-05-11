@@ -535,6 +535,7 @@ func (s *Server) readNetPackets() {
 			s.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
 		}
 		//panic(fmt.Sprintf("packet is %v", b.Bytes()[:]))
+		//panic(fmt.Sprintf("s is %v", s))
 		if err := s.Dispatch(b, t); err != nil {
 			log.Printf("%v: %v", RPCNames[MType(l[4])], err)
 		}
@@ -558,10 +559,11 @@ func (s *Server) Start() {
 	go s.readNetPackets()
 }
 
-func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
+func NewServer(ns NineServer, d Dispatcher, opts ...ServerOpt) (*Server, error) {
 	s := &Server{}
 	s.Replies = make(chan RPCReply, NumTags)
 	s.NS = ns
+	s.Dispatcher = d
 	for _, o := range opts {
 		if err := o(s); err != nil {
 			return nil, err

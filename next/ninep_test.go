@@ -6,14 +6,13 @@ package next
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"reflect"
 	"testing"
-)
 
-var debug = flag.Int("debug", 0, "print debug messages")
+	. "github.com/rminnich/ninep/rpc"
+)
 
 // Two files, dotu was true.
 var testunpackbytes = []byte{
@@ -205,6 +204,48 @@ type echo struct {
 	qids      map[FID]QID
 }
 
+// Dispatch dispatches request to different functions.
+// It's also the the first place we try to establish server semantics.
+// We could do this with interface assertions and such a la rsc/fuse
+// but most people I talked do disliked that. So we don't. If you want
+// to make things optional, just define the ones you want to implement in this case.
+func (s *echo) Dispatch(b *bytes.Buffer, t MType) error {
+	switch t {
+	case Tversion:
+	default:
+		if !s.Versioned {
+			ServerError(b, fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t]))
+		}
+	}
+	switch t {
+	case Tversion:
+		return s.SrvRversion(b)
+	case Tattach:
+		return s.SrvRattach(b)
+	case Tflush:
+		return s.SrvRflush(b)
+	case Twalk:
+		return s.SrvRwalk(b)
+	case Topen:
+		return s.SrvRopen(b)
+	case Tclunk:
+		return s.SrvRclunk(b)
+	case Tstat:
+		return s.SrvRstat(b)
+	case Twstat:
+		return s.SrvRwstat(b)
+	case Tremove:
+		return s.SrvRremove(b)
+	case Tread:
+		return s.SrvRread(b)
+	case Twrite:
+		return s.SrvRwrite(b)
+	}
+	// This has been tested by removing Attach from the switch.
+	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
+	return nil
+}
+
 func (e *echo) Rversion(msize MaxSize, version string) (MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
@@ -314,7 +355,7 @@ func TestTManyRPCs(t *testing.T) {
 	},
 		func(c *Client) error {
 			c.Msize = 8192
-			//c.Trace = t.Logf
+			c.Trace = t.Logf
 			return nil
 		})
 	if err != nil {
@@ -323,7 +364,7 @@ func TestTManyRPCs(t *testing.T) {
 	t.Logf("Client is %v", c.String())
 
 	e := &echo{}
-	e.Server, err = NewServer(func(s *Server) error {
+	e.Server, err = NewServer(e, e, func(s *Server) error {
 		s.FromNet, s.ToNet = sr, sw
 		//s.Trace = t.Logf
 		s.NS = e
@@ -354,7 +395,7 @@ func TestTMessages(t *testing.T) {
 	},
 		func(c *Client) error {
 			c.Msize = 8192
-			//c.Trace = t.Logf
+			c.Trace = t.Logf
 			return nil
 		})
 	if err != nil {
@@ -363,7 +404,7 @@ func TestTMessages(t *testing.T) {
 	t.Logf("Client is %v", c.String())
 
 	e := &echo{}
-	e.Server, err = NewServer(func(s *Server) error {
+	e.Server, err = NewServer(e, e, func(s *Server) error {
 		s.FromNet, s.ToNet = sr, sw
 		//s.Trace = t.Logf
 		s.NS = e
@@ -496,7 +537,7 @@ func BenchmarkNull(b *testing.B) {
 	b.Logf("Client is %v", c.String())
 
 	e := &echo{}
-	e.Server, err = NewServer(func(s *Server) error {
+	e.Server, err = NewServer(e, e, func(s *Server) error {
 		s.FromNet, s.ToNet = sr, sw
 		s.NS = e
 		return nil
