@@ -449,6 +449,7 @@ func (c *Client) IO() {
 			if c.Trace != nil {
 				c.Trace(fmt.Sprintf("Tag for request is %v", t))
 			}
+fmt.Printf("t is %v\n", t)
 			c.RPC[int(t)-1] = r
 			if c.Trace != nil {
 				c.Trace("Write %v to ToNet", r.b)
@@ -467,10 +468,23 @@ func (c *Client) IO() {
 			c.Trace("Read %v FromServer", r.b)
 		}
 		t := Tag(r.b[5]) | Tag(r.b[6])<<8
+fmt.Printf("RET: t is %v\n", t)
 		if c.Trace != nil {
 			c.Trace(fmt.Sprintf("Tag for reply is %v", t))
 		}
-		c.RPC[t-1].Reply <- r.b
+		if t < 1 {
+			panic(fmt.Sprintf("tag %d < 1", t))
+		}
+		if t >= NOTAG {
+			panic(fmt.Sprintf("tag %d >= NOTAG", t))
+		}
+		if int(t) >= len(c.RPC)  {
+			panic(fmt.Sprintf("tag %d >= len(c.RPC) %d", t, len(c.RPC)))
+		}
+			c.Trace("RPC %v ", c.RPC[t-1])
+		rrr := c.RPC[t-1]
+			c.Trace("rrr %v ", rrr)
+		rrr.Reply <- r.b
 		c.Tags <- t
 	}
 }

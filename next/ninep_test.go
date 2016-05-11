@@ -14,6 +14,10 @@ import (
 	. "github.com/rminnich/ninep/rpc"
 )
 
+func print(f string, args ...interface{}) {
+	fmt.Printf(f, args...)
+}
+
 // Two files, dotu was true.
 var testunpackbytes = []byte{
 	79, 0, 0, 0, 0, 0, 0, 0, 0, 228, 193, 233, 248, 44, 145, 3, 0, 0, 0, 0, 0, 164, 1, 0, 0, 0, 0, 0, 0, 47, 117, 180, 83, 102, 3, 0, 0, 0, 0, 0, 0, 6, 0, 112, 97, 115, 115, 119, 100, 4, 0, 110, 111, 110, 101, 4, 0, 110, 111, 110, 101, 4, 0, 110, 111, 110, 101, 0, 0, 232, 3, 0, 0, 232, 3, 0, 0, 255, 255, 255, 255, 78, 0, 0, 0, 0, 0, 0, 0, 0, 123, 171, 233, 248, 42, 145, 3, 0, 0, 0, 0, 0, 164, 1, 0, 0, 0, 0, 0, 0, 41, 117, 180, 83, 195, 0, 0, 0, 0, 0, 0, 0, 5, 0, 104, 111, 115, 116, 115, 4, 0, 110, 111, 110, 101, 4, 0, 110, 111, 110, 101, 4, 0, 110, 111, 110, 101, 0, 0, 232, 3, 0, 0, 232, 3, 0, 0, 255, 255, 255, 255,
@@ -210,11 +214,12 @@ type echo struct {
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
 func (s *echo) Dispatch(b *bytes.Buffer, t MType) error {
+fmt.Printf("dispatch: b is %v", b.Bytes())
 	switch t {
 	case Tversion:
 	default:
 		if !s.Versioned {
-			ServerError(b, fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t]))
+			return fmt.Errorf("Dispatch: %v not allowed before Tversion", RPCNames[t])
 		}
 	}
 	switch t {
@@ -395,7 +400,7 @@ func TestTMessages(t *testing.T) {
 	},
 		func(c *Client) error {
 			c.Msize = 8192
-			c.Trace = t.Logf
+			c.Trace = print// t.Logf
 			return nil
 		})
 	if err != nil {
@@ -406,7 +411,7 @@ func TestTMessages(t *testing.T) {
 	e := &echo{}
 	e.Server, err = NewServer(e, e, func(s *Server) error {
 		s.FromNet, s.ToNet = sr, sw
-		s.Trace = t.Logf
+		s.Trace = print// t.Logf
 		s.NS = e
 		return nil
 	})
