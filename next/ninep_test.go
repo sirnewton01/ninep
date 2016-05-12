@@ -264,16 +264,10 @@ func (e *echo) Rversion(msize MaxSize, version string) (MaxSize, string, error) 
 }
 
 func (e *echo) Rattach(FID, FID, string, string) (QID, error) {
-	if !e.Versioned {
-		return QID{}, fmt.Errorf("Attach: Version must be done first")
-	}
 	return QID{}, nil
 }
 
 func (e *echo) Rflush(f FID, t FID) error {
-	if !e.Versioned {
-		return fmt.Errorf("Attach: Version must be done first")
-	}
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
