@@ -8,30 +8,41 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/rminnich/ninep/next"
 	rpc "github.com/rminnich/ninep/rpc"
 )
 
+type File struct {
+	rpc.QID
+	fullName string
+}
+
+type FileServer struct {
+	next.FileServer
+	root *File
+	Files map[rpc.FID] *File
+}
+	
 var debug = flag.Int("debug", 0, "print debug messages")
 
 func (e *FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
 	}
-	e.versioned = true
+	e.Versioned = true
 	return msize, version, nil
 }
 
-func (e *FileServer) Rattach(rpc.FID, rpc.FID, string, string) (rpc.QID, error) {
-	if !e.versioned {
-		return rpc.QID{}, fmt.Errorf("Attach: Version must be done first")
+func (e *FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (rpc.QID, error) {
+	if afid != rpc.NOFID {
+		return rpc.QID{}, fmt.Errorf("We don't do auth attach")
 	}
-	return rpc.QID{}, nil
+	r := &File{fullName: aname,}
+	e.Files[fid] = r
+	return r.QID, nil
 }
 
 func (e *FileServer) Rflush(f rpc.FID, t rpc.FID) error {
-	if !e.versioned {
-		return fmt.Errorf("Attach: Version must be done first")
-	}
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
@@ -112,4 +123,10 @@ func (e *FileServer) Rwrite(f rpc.FID, o rpc.Offset, c rpc.Count, b []byte) (rpc
 		return c, nil
 	}
 	return -1, fmt.Errorf("Write: bad rpc.FID %v", f)
+}
+
+func NewUFS() *FileServer {
+	f := &FileServer{}
+	f.Files = make(map[rpc.FID] *File)
+	return f
 }

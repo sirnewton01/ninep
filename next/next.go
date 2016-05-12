@@ -21,7 +21,7 @@ func (s FileServer) Dispatch(b *bytes.Buffer, t rpc.MType) error {
 	switch t {
 	case rpc.Tversion:
 	default:
-		if !s.versioned {
+		if !s.Versioned {
 			rpc.ServerError(b, fmt.Sprintf("Dispatch: %v not allowed before Tversion", rpc.RPCNames[t]))
 		}
 	}

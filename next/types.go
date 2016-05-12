@@ -5,8 +5,6 @@
 package next
 
 import (
-	"sync"
-
 	rpc "github.com/rminnich/ninep/rpc"
 )
 
@@ -41,13 +39,6 @@ type Service func (func() error, chan rpc.FID)
 // off a goroutine to manage it. As a result we need a map of Tag to FID
 // so we know what to do about Tflush.
 type FileServer struct {
-	mu sync.Mutex
 	rpc.Server
-	versioned bool
-	// Files we have walked to. For each FID, there is a goroutine
-	// serving that File.
-	Files map[rpc.FID] File
-	// Active operations. For each Tag we've been asked to work on,
-	// we enter the File in the scoreboard.
-	ScoreBoard map[rpc.Tag]File
+	Versioned bool
 }
