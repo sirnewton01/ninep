@@ -468,7 +468,7 @@ fmt.Printf("t is %v\n", t)
 			c.Trace("Read %v FromServer", r.b)
 		}
 		t := Tag(r.b[5]) | Tag(r.b[6])<<8
-fmt.Printf("RET: t is %v\n", t)
+fmt.Printf("RET: b is %v t is %v\n", r.b, t)
 		if c.Trace != nil {
 			c.Trace(fmt.Sprintf("Tag for reply is %v", t))
 		}

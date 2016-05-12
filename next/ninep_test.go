@@ -219,6 +219,10 @@ fmt.Printf("dispatch: b is %v", b.Bytes())
 	case Tversion:
 	default:
 		if !s.Versioned {
+			m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t])
+			// Yuck. Provide helper.
+			d := b.Bytes()
+			MarshalRerrorPkt(b, Tag(d[0])|Tag(d[1]<<8), m)
 			return fmt.Errorf("Dispatch: %v not allowed before Tversion", RPCNames[t])
 		}
 	}
@@ -438,7 +442,6 @@ func TestTMessages(t *testing.T) {
 		t.Fatalf("CallTattach: want err, got nil")
 	}
 	t.Logf("CallTattach: wanted an error and got %v", err)
-		t.Fatalf("Quit early")
 
 	m, v, err := c.CallTversion(8000, "9p3000")
 	if err == nil {
