@@ -162,6 +162,8 @@ type Dir struct {
 	ModUser string // name of the last user that modified the file
 }
 
+type Dispatcher func (s *Server, b *bytes.Buffer, t MType) error
+
 // N.B. In all packets, the wire order is assumed to be the order in which you
 // put struct members.
 // In an earlier version of this code we got really fancy and made it so you
@@ -325,6 +327,7 @@ type Client struct {
 // we can go to a more concurrent one later.
 type Server struct {
 	NS NineServer
+	D Dispatcher
 	Versioned bool
 	FromNet io.ReadCloser
 	ToNet   io.WriteCloser
@@ -401,6 +404,10 @@ func (c *Client) GetFID() FID {
 
 func (c *Client) readNetPackets() {
 	if c.FromNet == nil {
+		panic(fmt.Sprintf("Client %v died", c))
+		if c.Trace != nil {
+			c.Trace("c.FromNet is nil, marking dead")
+		}
 		c.Dead = true
 		return
 	}
@@ -411,10 +418,17 @@ func (c *Client) readNetPackets() {
 	}
 	for !c.Dead {
 		l := make([]byte, 7)
+		if c.Trace != nil {
+			c.Trace("Before read")
+		}
+
 		if n, err := c.FromNet.Read(l); err != nil || n < 7 {
 			log.Printf("readNetPackets: short read: %v", err)
 			c.Dead = true
 			return
+		}
+		if c.Trace != nil {
+			c.Trace("Server reads %v", l)
 		}
 		s := int64(l[0]) + int64(l[1])<<8 + int64(l[2])<<16 + int64(l[3])<<24
 		b := bytes.NewBuffer(l)
@@ -428,6 +442,9 @@ func (c *Client) readNetPackets() {
 			c.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
 		}
 		c.FromServer <- &RPCReply{b: b.Bytes()}
+	}
+	if c.Trace != nil {
+		c.Trace("Client %v is all done", c)
 	}
 
 }
@@ -482,11 +499,12 @@ func (c *Client) IO() {
 
 func (c *Client) String() string {
 	z := map[bool]string{false: "Alive", true: "Dead"}
-	return fmt.Sprintf("%v tags available, Msize %v, %v", len(c.Tags), c.Msize, z[c.Dead])
+	return fmt.Sprintf("%v tags available, Msize %v, %v FromNet %v ToNet %v", len(c.Tags), c.Msize, z[c.Dead],
+				c.FromNet, c.ToNet)
 }
 
 func (s *Server) String() string {
-	return fmt.Sprintf("Versioned %v %d replies pending", s.Versioned, len(s.Replies))
+	return fmt.Sprintf("Versioned %v Dead %v %d replies pending", s.Versioned, s.Dead, len(s.Replies))
 }
 
 func NewClient(opts ...ClientOpt) (*Client, error) {
@@ -541,7 +559,7 @@ func (s *Server) readNetPackets() {
 		}
 		//panic(fmt.Sprintf("packet is %v", b.Bytes()[:]))
 		//panic(fmt.Sprintf("s is %v", s))
-		if err := Dispatch(s, b, t); err != nil {
+		if err := s.D(s, b, t); err != nil {
 			log.Printf("%v: %v", RPCNames[MType(l[4])], err)
 		}
 		if s.Trace != nil {
@@ -562,62 +580,4 @@ func (s *Server) readNetPackets() {
 
 func (s *Server) Start() {
 	go s.readNetPackets()
-}
-
-func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
-	s := &Server{}
-	s.Replies = make(chan RPCReply, NumTags)
-	s.NS = ns
-	for _, o := range opts {
-		if err := o(s); err != nil {
-			return nil, err
-		}
-	}
-	return s, nil
-}
-// Dispatch dispatches request to different functions.
-// It's also the the first place we try to establish server semantics.
-// We could do this with interface assertions and such a la rsc/fuse
-// but most people I talked do disliked that. So we don't. If you want
-// to make things optional, just define the ones you want to implement in this case.
-func Dispatch(s *Server, b *bytes.Buffer, t MType) error {
-	switch t {
-	case Tversion:
-		s.Versioned = true
-	default:
-		if !s.Versioned {
-			m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t])
-			// Yuck. Provide helper.
-			d := b.Bytes()
-			MarshalRerrorPkt(b, Tag(d[0])|Tag(d[1]<<8), m)
-			return fmt.Errorf("Dispatch: %v not allowed before Tversion", RPCNames[t])
-		}
-	}
-	switch t {
-	case Tversion:
-		return s.SrvRversion(b)
-	case Tattach:
-		return s.SrvRattach(b)
-	case Tflush:
-		return s.SrvRflush(b)
-	case Twalk:
-		return s.SrvRwalk(b)
-	case Topen:
-		return s.SrvRopen(b)
-	case Tclunk:
-		return s.SrvRclunk(b)
-	case Tstat:
-		return s.SrvRstat(b)
-	case Twstat:
-		return s.SrvRwstat(b)
-	case Tremove:
-		return s.SrvRremove(b)
-	case Tread:
-		return s.SrvRread(b)
-	case Twrite:
-		return s.SrvRwrite(b)
-	}
-	// This has been tested by removing Attach from the switch.
-	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
-	return nil
 }

@@ -7,6 +7,8 @@ package ufs
 import (
 	"flag"
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/rminnich/ninep/rpc"
 )
@@ -21,9 +23,11 @@ type FileServer struct {
 	Versioned bool
 	Files map[rpc.FID] *File
 }
-	
-var debug = flag.Int("debug", 0, "print debug messages")
 
+var (
+	debug = flag.Int("debug", 0, "print debug messages")
+	root = flag.String("root", "/", "Set the root for all attaches")
+)
 func (e FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
@@ -36,8 +40,21 @@ func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (
 	if afid != rpc.NOFID {
 		return rpc.QID{}, fmt.Errorf("We don't do auth attach")
 	}
+	// There should be no .. or other such junk in the Aname. Clean it up anyway.
+fmt.Fprintf(os.Stderr, "-------------------------- %v ---------------", []byte(aname))
+	aname = path.Join("/", aname)
+	aname = path.Join(*root, aname)
+fmt.Fprintf(os.Stderr, "=================== stat %v =====================", aname)
+	_, _ = os.Stat("FUCK")
+	st, err := os.Stat(aname)
+fmt.Fprintf(os.Stderr, "=================== %v %v =====================", st, err)
+	if err != nil {
+		return rpc.QID{}, err
+	}
 	r := &File{fullName: aname,}
+	r.QID = dir2QID(st)
 	e.Files[fid] = r
+	e.root = r
 	return r.QID, nil
 }
 
@@ -124,15 +141,15 @@ func (e FileServer) Rwrite(f rpc.FID, o rpc.Offset, c rpc.Count, b []byte) (rpc.
 
 type ServerOpt func(*rpc.Server) error
 
-func NewUFS(opts ...ServerOpt) (*rpc.Server, error) {
+func NewUFS(opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	f := FileServer{}
 	f.Files = make(map[rpc.FID] *File)
 	// any opts for the ufs layer can be added here too ...
-	s, err := rpc.NewServer(f)
+	s, err := rpc.NewServer(f, opts...)
 	if err != nil {
 		return nil, err
 	}
-
+	s.Start()
 	return s, nil
 }
 
