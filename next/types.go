@@ -5,7 +5,7 @@
 package next
 
 import (
-	rpc "github.com/rminnich/ninep/rpc"
+	"github.com/rminnich/ninep/rpc"
 )
 
 // A File is defined by a QID. File Servers never see a FID.

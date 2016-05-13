@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package next
+package rpc
 
 import (
 	"sync/atomic"
@@ -475,10 +475,7 @@ fmt.Printf("RET: b is %v t is %v\n", r.b, t)
 		if t < 1 {
 			panic(fmt.Sprintf("tag %d < 1", t))
 		}
-		if t >= NOTAG {
-			panic(fmt.Sprintf("tag %d >= NOTAG", t))
-		}
-		if int(t) >= len(c.RPC)  {
+		if int(t-1) >= len(c.RPC)  {
 			panic(fmt.Sprintf("tag %d >= len(c.RPC) %d", t, len(c.RPC)))
 		}
 			c.Trace("RPC %v ", c.RPC[t-1])

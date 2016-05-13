@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"fmt"
 
-	rpc "github.com/rminnich/ninep/rpc"
+	"github.com/rminnich/ninep/rpc"
 )
 
 // Dispatch dispatches request to different functions.

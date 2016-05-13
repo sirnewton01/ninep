@@ -37,7 +37,7 @@ import (
 
 const (
 	header = `
-package next
+package rpc
 import (
 "bytes"
 "fmt"
@@ -93,19 +93,19 @@ var (
 	doDebug  = flag.Bool("d", false, "Debug prints")
 	debug    = nodebug //log.Printf
 	packages = []*pack{
-		{n: "error", t: next.RerrorPkt{}, tn: "Rerror", r: next.RerrorPkt{}, rn: "Rerror"},
-		{n: "version", t: next.TversionPkt{}, tn: "Tversion", r: next.RversionPkt{}, rn: "Rversion"},
-		{n: "attach", t: next.TattachPkt{}, tn: "Tattach", r: next.RattachPkt{}, rn: "Rattach"},
-		{n: "flush", t: next.TflushPkt{}, tn: "Tflush", r: next.RflushPkt{}, rn: "Rflush"},
-		{n: "walk", t: next.TwalkPkt{}, tn: "Twalk", r: next.RwalkPkt{}, rn: "Rwalk"},
-		{n: "open", t: next.TopenPkt{}, tn: "Topen", r: next.RopenPkt{}, rn: "Ropen"},
-		{n: "create", t: next.TcreatePkt{}, tn: "Tcreate", r: next.RcreatePkt{}, rn: "Rcreate"},
-		{n: "stat", t: next.TstatPkt{}, tn: "Tstat", r: next.RstatPkt{}, rn: "Rstat"},
-		{n: "wstat", t: next.TwstatPkt{}, tn: "Twstat", r: next.RwstatPkt{}, rn: "Rwstat"},
-		{n: "clunk", t: next.TclunkPkt{}, tn: "Tclunk", r: next.RclunkPkt{}, rn: "Rclunk"},
-		{n: "remove", t: next.TremovePkt{}, tn: "Tremove", r: next.RremovePkt{}, rn: "Rremove"},
-		{n: "read", t: next.TreadPkt{}, tn: "Tread", r: next.RreadPkt{}, rn: "Rread"},
-		{n: "write", t: next.TwritePkt{}, tn: "Twrite", r: next.RwritePkt{}, rn: "Rwrite"},
+		{n: "error", t: rpc.RerrorPkt{}, tn: "Rerror", r: rpc.RerrorPkt{}, rn: "Rerror"},
+		{n: "version", t: rpc.TversionPkt{}, tn: "Tversion", r: rpc.RversionPkt{}, rn: "Rversion"},
+		{n: "attach", t: rpc.TattachPkt{}, tn: "Tattach", r: rpc.RattachPkt{}, rn: "Rattach"},
+		{n: "flush", t: rpc.TflushPkt{}, tn: "Tflush", r: rpc.RflushPkt{}, rn: "Rflush"},
+		{n: "walk", t: rpc.TwalkPkt{}, tn: "Twalk", r: rpc.RwalkPkt{}, rn: "Rwalk"},
+		{n: "open", t: rpc.TopenPkt{}, tn: "Topen", r: rpc.RopenPkt{}, rn: "Ropen"},
+		{n: "create", t: rpc.TcreatePkt{}, tn: "Tcreate", r: rpc.RcreatePkt{}, rn: "Rcreate"},
+		{n: "stat", t: rpc.TstatPkt{}, tn: "Tstat", r: rpc.RstatPkt{}, rn: "Rstat"},
+		{n: "wstat", t: rpc.TwstatPkt{}, tn: "Twstat", r: rpc.RwstatPkt{}, rn: "Rwstat"},
+		{n: "clunk", t: rpc.TclunkPkt{}, tn: "Tclunk", r: rpc.RclunkPkt{}, rn: "Rclunk"},
+		{n: "remove", t: rpc.TremovePkt{}, tn: "Tremove", r: rpc.RremovePkt{}, rn: "Rremove"},
+		{n: "read", t: rpc.TreadPkt{}, tn: "Tread", r: rpc.RreadPkt{}, rn: "Rread"},
+		{n: "write", t: rpc.TwritePkt{}, tn: "Twrite", r: rpc.RwritePkt{}, rn: "Rwrite"},
 	}
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
@@ -264,7 +264,7 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genEncodeData(s, n+"[i]", e)
 		e.MCode.WriteString("}\n")
-	case "[]next.QID":
+	case "[]rpc.QID":
 		var u uint16
 		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
 		if e.inBWrite {
@@ -272,7 +272,7 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 			e.inBWrite = false
 		}
 		e.MCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
-		genEncodeData(next.QID{}, n+"[i]", e)
+		genEncodeData(rpc.QID{}, n+"[i]", e)
 		e.MCode.WriteString("\t})\n")
 		e.inBWrite = false
 		e.MCode.WriteString("}\n")
@@ -302,12 +302,12 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genDecodeData(s, n+"[i]", e)
 		e.UCode.WriteString("}\n")
-	case "[]next.QID":
+	case "[]rpc.QID":
 		var u uint64
 		emitDecodeInt(u, "l", 2, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, l)\n", n))
 		e.UCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
-		genDecodeData(next.QID{}, n+"[i]", e)
+		genDecodeData(rpc.QID{}, n+"[i]", e)
 		e.UCode.WriteString("}\n")
 	case "[]byte", "[]uint8":
 		var u uint64
@@ -382,7 +382,7 @@ func tn(f reflect.Value) string {
 	if n == "" {
 		t := f.Type().String()
 		switch t {
-		case "[]next.QID":
+		case "[]rpc.QID":
 			n = "[]QID"
 		default:
 			n = t
