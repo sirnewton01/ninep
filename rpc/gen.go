@@ -221,7 +221,7 @@ func emitDecodeString(n string, e *emitter) {
 	var l uint64
 	emitDecodeInt(l, "l", 2, e)
 	e.UCode.WriteString(fmt.Sprintf("\tif b.Len() < int(l) {\n\t\terr = fmt.Errorf(\"pkt too short for string: need %%d, have %%d\", l, b.Len())\n\treturn\n\t}\n"))
-	e.UCode.WriteString(fmt.Sprintf("\t%v = b.String()\n", n))
+	e.UCode.WriteString(fmt.Sprintf("\t%v = string(b.Bytes()[:l])\n", n))
 	e.UCode.WriteString("\t_ = b.Next(int(l))\n")
 }
 
