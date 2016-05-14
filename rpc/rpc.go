@@ -404,7 +404,6 @@ func (c *Client) GetFID() FID {
 
 func (c *Client) readNetPackets() {
 	if c.FromNet == nil {
-		panic(fmt.Sprintf("Client %v died", c))
 		if c.Trace != nil {
 			c.Trace("c.FromNet is nil, marking dead")
 		}
