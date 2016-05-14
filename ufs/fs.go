@@ -11,6 +11,7 @@ import (
 	"path"
 
 	"github.com/rminnich/ninep/rpc"
+	"github.com/rminnich/ninep/next"
 )
 
 type File struct {
@@ -145,7 +146,7 @@ func NewUFS(opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	f := FileServer{}
 	f.Files = make(map[rpc.FID] *File)
 	// any opts for the ufs layer can be added here too ...
-	s, err := rpc.NewServer(f, opts...)
+	s, err := next.NewServer(f, opts...)
 	if err != nil {
 		return nil, err
 	}
