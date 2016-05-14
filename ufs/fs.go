@@ -174,13 +174,26 @@ func (e FileServer) Rremove(f rpc.FID) error {
 	//fmt.Printf("remove(%v)\n", f)
 	return fmt.Errorf("Remove: bad rpc.FID %v", f)
 }
-func (e FileServer) Rread(f rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error) {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return []byte("HI"), nil
+
+func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error) {
+	e.mu.Lock()
+	f, ok := e.Files[fid]
+	e.mu.Unlock()
+	if ! ok {
+		return nil, fmt.Errorf("Bad FID")
 	}
-	return nil, fmt.Errorf("Read: bad rpc.FID %v", f)
+	if f.File == nil {
+		return nil, fmt.Errorf("FID not open")
+	}
+
+	// N.B. even if they ask for 0 bytes on some file systems it is important to pass
+	// through a zero byte read (not Unix, of course).
+	b := make([]byte, c)
+	n, err := f.File.ReadAt(b, int64(o))
+	if err != nil {
+		return nil, err
+	}
+	return b[:n], nil
 }
 
 func (e FileServer) Rwrite(f rpc.FID, o rpc.Offset, c rpc.Count, b []byte) (rpc.Count, error) {

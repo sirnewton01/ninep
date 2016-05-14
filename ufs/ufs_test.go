@@ -78,14 +78,26 @@ func TestMount(t *testing.T) {
 	if err == nil {
 		t.Fatalf("CallTopen(22, rpc.OREAD): want err, got nil")
 	}
-	of, _, err = c.CallTopen(0, rpc.OWRITE)
+	of, _, err = c.CallTopen(1, rpc.OWRITE)
 	if err == nil {
 		t.Fatalf("CallTopen(0, rpc.OWRITE): want err, got nil")
 	}
-	of, _, err = c.CallTopen(0, rpc.OREAD)
+	of, _, err = c.CallTopen(1, rpc.OREAD)
 	if err != nil {
 		t.Fatalf("CallTopen(0, rpc.OREAD): want nil, got %v", nil)
 	}
 	t.Logf("Open is %v", of)
+
+	b, err := c.CallTread(22, 0, 0)
+	if err == nil {
+		t.Fatalf("CallTread(22, 0, 0): want err, got nil")
+	}
+	b, err = c.CallTread(1, 1, 22)
+	if err != nil {
+		t.Fatalf("CallTread(0, 22, 1): want nil, got %v", err)
+	}
+	t.Logf("read is %v", string(b))
+
+	// TODO: close the file, then try to read it.
 
 }
