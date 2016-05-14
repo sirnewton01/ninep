@@ -63,11 +63,29 @@ func TestMount(t *testing.T) {
 	}
 
 	t.Logf("Attach is %v", a)
-/*
 	w, err := c.CallTwalk(0, 1, []string{"hi", "there"})
 	if err == nil {
 		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want err, got QIDS %v", w)
 	}
 	t.Logf("Walk is %v", w)
-*/
+	w, err = c.CallTwalk(0, 1, []string{"etc", "hosts"})
+	if err != nil {
+		t.Fatalf("CallTwalk(0,1,[\"etc\", \"hosts\"]): want nil, got %v", err)
+	}
+	t.Logf("Walk is %v", w)
+
+	of, _, err := c.CallTopen(22, rpc.OREAD)
+	if err == nil {
+		t.Fatalf("CallTopen(22, rpc.OREAD): want err, got nil")
+	}
+	of, _, err = c.CallTopen(0, rpc.OWRITE)
+	if err == nil {
+		t.Fatalf("CallTopen(0, rpc.OWRITE): want err, got nil")
+	}
+	of, _, err = c.CallTopen(0, rpc.OREAD)
+	if err != nil {
+		t.Fatalf("CallTopen(0, rpc.OREAD): want nil, got %v", nil)
+	}
+	t.Logf("Open is %v", of)
+
 }

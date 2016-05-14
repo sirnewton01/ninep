@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/rminnich/ninep/rpc"
 	"github.com/rminnich/ninep/next"
@@ -17,12 +18,15 @@ import (
 type File struct {
 	rpc.QID
 	fullName string
+	File *os.File
 }
 
 type FileServer struct {
+	mu sync.Mutex
 	root *File
 	Versioned bool
 	Files map[rpc.FID] *File
+	IOunit rpc.MaxSize
 }
 
 var (
@@ -69,18 +73,66 @@ func (e FileServer) Rflush(f rpc.FID, t rpc.FID) error {
 }
 
 func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QID, error) {
-		return nil, fmt.Errorf("%v: No such file or directory", paths)
-/*
-	//fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
-	if len(paths) > 1 {
-		return nil, fmt.Errorf("%v: No such file or directory", paths)
+	e.mu.Lock()
+	f, ok := e.Files[fid]
+	e.mu.Unlock()
+	if ! ok {
+		return nil, fmt.Errorf("Bad FID")
 	}
- */
+	if len(paths) == 0 {
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		of, ok := e.Files[newfid]
+		if ok {
+			return nil, fmt.Errorf("FID in use")
+		}
+		e.Files[newfid] = of
+		return []rpc.QID{of.QID, }, nil
+	}
+	p := f.fullName
+	q := make([]rpc.QID, len(paths))
+
+	// optional: path.Join(p, paths[i]...) and see if the endpoint exists and return if not.
+	// It can save a little time. Maybe later.
+	for i := range paths {
+		p = path.Join(p, paths[i])
+		st, err := os.Lstat(p)
+		if err != nil {
+			return nil, fmt.Errorf("ENOENT")
+		}
+		q[i] = dir2QID(st)
+	}
+	st, err := os.Lstat(p)
+	if err != nil {
+		return nil, fmt.Errorf("Walk succeeded but stat failed")
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	// this is quite unlikely, which is why we don't bother checking for it first.
+	if _, ok := e.Files[newfid]; ok {
+		return nil, fmt.Errorf("FID in use")
+	}
+	e.Files[newfid] = &File{fullName: p, QID: dir2QID(st)}
+	return q, nil
 }
+	
+
 
 func (e FileServer) Ropen(fid rpc.FID, mode rpc.Mode) (rpc.QID, rpc.MaxSize, error) {
-	//fmt.Printf("open(%v, %v\n", fid, mode)
-	return rpc.QID{}, 4000, nil
+	e.mu.Lock()
+	f, ok := e.Files[fid]
+	e.mu.Unlock()
+	if ! ok {
+		return rpc.QID{}, 0, fmt.Errorf("Bad FID")
+	}
+
+	var err error
+	f.File, err = os.OpenFile(f.fullName, omode2uflags(mode), 0)
+	if err != nil {
+		return rpc.QID{}, 0, err
+	}
+
+	return f.QID, e.IOunit, nil
 }
 func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mode) (rpc.QID, rpc.MaxSize, error) {
 	//fmt.Printf("open(%v, %v\n", fid, mode)
@@ -150,6 +202,7 @@ func NewUFS(opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	f.IOunit = 8192
 	s.Start()
 	return s, nil
 }
