@@ -41,6 +41,13 @@ func (e FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, st
 	return msize, version, nil
 }
 
+func (e FileServer) getFile(fid rpc.FID) (*File, bool){
+	e.mu.Lock()
+	f, ok := e.Files[fid]
+	e.mu.Unlock()
+	return f, ok
+}
+
 func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (rpc.QID, error) {
 	if afid != rpc.NOFID {
 		return rpc.QID{}, fmt.Errorf("We don't do auth attach")
@@ -138,15 +145,16 @@ func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mo
 	//fmt.Printf("open(%v, %v\n", fid, mode)
 	return rpc.QID{}, 5000, nil
 }
-func (e FileServer) Rclunk(f rpc.FID) error {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return nil
+func (e FileServer) Rclunk(fid rpc.FID) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if _, ok := e.Files[fid]; ! ok {
+		return fmt.Errorf("Bad FID")
 	}
-	//fmt.Printf("clunk(%v)\n", f)
-	return fmt.Errorf("Clunk: bad rpc.FID %v", f)
+	delete(e.Files, fid)
+	return nil
 }
+
 func (e FileServer) Rstat(f rpc.FID) (rpc.Dir, error) {
 	switch int(f) {
 	case 2:

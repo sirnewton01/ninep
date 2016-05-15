@@ -99,5 +99,14 @@ func TestMount(t *testing.T) {
 	t.Logf("read is %v", string(b))
 
 	// TODO: close the file, then try to read it.
+	if err := c.CallTclunk(22); err == nil {
+		t.Fatalf("CallTclunk(22): want err, got nil")
+	}
+	if err := c.CallTclunk(1); err != nil {
+		t.Fatalf("CallTclunk(1): want nil, got %v", err)
+	}
+	if _, err := c.CallTread(1, 1, 22); err == nil {
+		t.Fatalf("CallTread(1, 1, 22) after clunk: want err, got nil")
+	}
 
 }
