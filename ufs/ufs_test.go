@@ -30,7 +30,7 @@ func TestMount(t *testing.T) {
 	},
 		func(c *rpc.Client) error {
 			c.Msize = 8192
-			c.Trace = print//t.Logf
+			c.Trace = print //t.Logf
 			return nil
 		})
 	if err != nil {
@@ -40,7 +40,7 @@ func TestMount(t *testing.T) {
 
 	n, err := NewUFS(func(s *rpc.Server) error {
 		s.FromNet, s.ToNet = sr, sw
-		s.Trace = print//t.Logf
+		s.Trace = print //t.Logf
 		return nil
 	})
 	if err != nil {

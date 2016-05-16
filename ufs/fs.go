@@ -41,11 +41,15 @@ func (e FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, st
 	return msize, version, nil
 }
 
-func (e FileServer) getFile(fid rpc.FID) (*File, bool){
+func (e FileServer) getFile(fid rpc.FID) (*File, error){
 	e.mu.Lock()
+	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
-	e.mu.Unlock()
-	return f, ok
+	if ! ok {
+		return fmt.Errorf("Bad FID")
+	} else 
+
+	return f, nil
 }
 
 func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (rpc.QID, error) {
@@ -155,13 +159,16 @@ func (e FileServer) Rclunk(fid rpc.FID) error {
 	return nil
 }
 
-func (e FileServer) Rstat(f rpc.FID) (rpc.Dir, error) {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return rpc.Dir{}, nil
+func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
+	if f, err := getFile(fid)
+	if err != nil {
+		return rpc.Dir{}, err
 	}
-	//fmt.Printf("stat(%v)\n", f)
+	st, err := os.Lstat(f.fullName)
+	if err != nil {
+		return rpc.Dir{}, fmt.Errorf("ENOENT")
+	}
+
 	return rpc.Dir{}, fmt.Errorf("Stat: bad rpc.FID %v", f)
 }
 func (e FileServer) Rwstat(f rpc.FID, d rpc.Dir) error {
