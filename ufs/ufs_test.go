@@ -98,7 +98,18 @@ func TestMount(t *testing.T) {
 	}
 	t.Logf("read is %v", string(b))
 
-	// TODO: close the file, then try to read it.
+	d, err := c.CallTstat(1)
+	if err != nil {
+		t.Fatalf("CallTstat(1): want nil, got %v", err)
+	}
+	t.Logf("stat is %v", d)
+
+	d, err = c.CallTstat(22)
+	if err == nil {
+		t.Fatalf("CallTstat(22): want err, got nil)")
+	}
+	t.Logf("stat is %v", d)
+
 	if err := c.CallTclunk(22); err == nil {
 		t.Fatalf("CallTclunk(22): want err, got nil")
 	}
@@ -108,5 +119,11 @@ func TestMount(t *testing.T) {
 	if _, err := c.CallTread(1, 1, 22); err == nil {
 		t.Fatalf("CallTread(1, 1, 22) after clunk: want err, got nil")
 	}
+
+	d, err = c.CallTstat(1)
+	if err == nil {
+		t.Fatalf("CallTstat(1): after clunk: want err, got nil")
+	}
+	t.Logf("stat is %v", d)
 
 }

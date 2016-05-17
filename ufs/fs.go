@@ -11,28 +11,29 @@ import (
 	"path"
 	"sync"
 
-	"github.com/rminnich/ninep/rpc"
 	"github.com/rminnich/ninep/next"
+	"github.com/rminnich/ninep/rpc"
 )
 
 type File struct {
 	rpc.QID
 	fullName string
-	File *os.File
+	File     *os.File
 }
 
 type FileServer struct {
-	mu sync.Mutex
-	root *File
+	mu        sync.Mutex
+	root      *File
 	Versioned bool
-	Files map[rpc.FID] *File
-	IOunit rpc.MaxSize
+	Files     map[rpc.FID]*File
+	IOunit    rpc.MaxSize
 }
 
 var (
 	debug = flag.Int("debug", 0, "print debug messages")
-	root = flag.String("root", "/", "Set the root for all attaches")
+	root  = flag.String("root", "/", "Set the root for all attaches")
 )
+
 func (e FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
@@ -41,13 +42,13 @@ func (e FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, st
 	return msize, version, nil
 }
 
-func (e FileServer) getFile(fid rpc.FID) (*File, error){
+func (e FileServer) getFile(fid rpc.FID) (*File, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
-	if ! ok {
-		return fmt.Errorf("Bad FID")
-	} else 
+	if !ok {
+		return nil, fmt.Errorf("Bad FID")
+	}
 
 	return f, nil
 }
@@ -57,18 +58,18 @@ func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (
 		return rpc.QID{}, fmt.Errorf("We don't do auth attach")
 	}
 	// There should be no .. or other such junk in the Aname. Clean it up anyway.
-fmt.Fprintf(os.Stderr, "-------------------------- %v ---------------", []byte(aname))
+	fmt.Fprintf(os.Stderr, "-------------------------- %v ---------------", []byte(aname))
 	aname = path.Join("/", aname)
 	aname = path.Join(*root, aname)
-fmt.Fprintf(os.Stderr, "=================== stat %v =====================", aname)
+	fmt.Fprintf(os.Stderr, "=================== stat %v =====================", aname)
 	_, _ = os.Stat("FUCK")
 	st, err := os.Stat(aname)
-fmt.Fprintf(os.Stderr, "=================== %v %v =====================", st, err)
+	fmt.Fprintf(os.Stderr, "=================== %v %v =====================", st, err)
 	if err != nil {
 		return rpc.QID{}, err
 	}
-	r := &File{fullName: aname,}
-	r.QID = dir2QID(st)
+	r := &File{fullName: aname}
+	r.QID = dirToQID(st)
 	e.Files[fid] = r
 	e.root = r
 	return r.QID, nil
@@ -87,7 +88,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
-	if ! ok {
+	if !ok {
 		return nil, fmt.Errorf("Bad FID")
 	}
 	if len(paths) == 0 {
@@ -98,7 +99,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 			return nil, fmt.Errorf("FID in use")
 		}
 		e.Files[newfid] = of
-		return []rpc.QID{of.QID, }, nil
+		return []rpc.QID{of.QID}, nil
 	}
 	p := f.fullName
 	q := make([]rpc.QID, len(paths))
@@ -111,7 +112,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 		if err != nil {
 			return nil, fmt.Errorf("ENOENT")
 		}
-		q[i] = dir2QID(st)
+		q[i] = dirToQID(st)
 	}
 	st, err := os.Lstat(p)
 	if err != nil {
@@ -123,17 +124,15 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	if _, ok := e.Files[newfid]; ok {
 		return nil, fmt.Errorf("FID in use")
 	}
-	e.Files[newfid] = &File{fullName: p, QID: dir2QID(st)}
+	e.Files[newfid] = &File{fullName: p, QID: dirToQID(st)}
 	return q, nil
 }
-	
-
 
 func (e FileServer) Ropen(fid rpc.FID, mode rpc.Mode) (rpc.QID, rpc.MaxSize, error) {
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
-	if ! ok {
+	if !ok {
 		return rpc.QID{}, 0, fmt.Errorf("Bad FID")
 	}
 
@@ -152,7 +151,7 @@ func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mo
 func (e FileServer) Rclunk(fid rpc.FID) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if _, ok := e.Files[fid]; ! ok {
+	if _, ok := e.Files[fid]; !ok {
 		return fmt.Errorf("Bad FID")
 	}
 	delete(e.Files, fid)
@@ -160,7 +159,7 @@ func (e FileServer) Rclunk(fid rpc.FID) error {
 }
 
 func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
-	if f, err := getFile(fid)
+	f, err := e.getFile(fid)
 	if err != nil {
 		return rpc.Dir{}, err
 	}
@@ -168,8 +167,11 @@ func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
 	if err != nil {
 		return rpc.Dir{}, fmt.Errorf("ENOENT")
 	}
-
-	return rpc.Dir{}, fmt.Errorf("Stat: bad rpc.FID %v", f)
+	d, err := dirTo9p2000Dir(path.Base(f.fullName), st)
+	if err != nil {
+		return rpc.Dir{}, nil
+	}
+	return *d, nil
 }
 func (e FileServer) Rwstat(f rpc.FID, d rpc.Dir) error {
 	switch int(f) {
@@ -194,7 +196,7 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
-	if ! ok {
+	if !ok {
 		return nil, fmt.Errorf("Bad FID")
 	}
 	if f.File == nil {
@@ -224,7 +226,7 @@ type ServerOpt func(*rpc.Server) error
 
 func NewUFS(opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	f := FileServer{}
-	f.Files = make(map[rpc.FID] *File)
+	f.Files = make(map[rpc.FID]*File)
 	// any opts for the ufs layer can be added here too ...
 	s, err := next.NewServer(f, opts...)
 	if err != nil {
@@ -234,4 +236,3 @@ func NewUFS(opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	s.Start()
 	return s, nil
 }
-
