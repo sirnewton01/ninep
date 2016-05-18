@@ -304,17 +304,14 @@ func TestTManyRPCs(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 	c, err := rpc.NewClient(func(c *rpc.Client) error {
-		panic("FUCK")
 		c.FromNet, c.ToNet = cr, cw
 		return nil
 	},
 		func(c *rpc.Client) error {
-		panic("FUCK2")
 			c.Msize = 8192
 			c.Trace = print // t.Logf
 			return nil
 		})
-panic("2")
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
