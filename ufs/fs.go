@@ -188,7 +188,83 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 	if f.File == nil {
 		return nil, fmt.Errorf("FID not open")
 	}
+	if f.QID.Type & rpc.QTDIR != 0 {
+		return nil, fmt.Errorf("Permission denied")
+/*
+		if tc.Offset == 0 {
+			var e error
+			// If we got here, it was open. Can't really seek
+			// in most cases, just close and reopen it.
+			fid.file.Close()
+			if fid.file, e = os.OpenFile(fid.path, omode2uflags(req.Fid.Omode), 0); e != nil {
+				req.RespondError(toError(e))
+				return
+			}
 
+			if fid.dirs, e = fid.file.Readdir(-1); e != nil {
+				req.RespondError(toError(e))
+				return
+			}
+
+			if dbg {
+				log.Printf("Read: read %d entries", len(fid.dirs))
+			}
+			fid.dirents = nil
+			fid.direntends = nil
+			for i := 0; i < len(fid.dirs); i++ {
+				path := fid.path + "/" + fid.dirs[i].Name()
+				st, err := dir2Dir(path, fid.dirs[i], req.Conn.Dotu, req.Conn.Srv.Upool)
+				if err != nil {
+					if dbg {
+						log.Printf("dbg: stat of %v: %v", path, err)
+					}
+					continue
+				}
+				if dbg {
+					log.Printf("Stat: %v is %v", path, st)
+				}
+				b := ninep.PackDir(st, req.Conn.Dotu)
+				fid.dirents = append(fid.dirents, b...)
+				count += len(b)
+				fid.direntends = append(fid.direntends, count)
+				if dbg {
+					log.Printf("fid.direntends is %v\n", fid.direntends)
+				}
+			}
+		}
+
+		switch {
+		case tc.Offset > uint64(len(fid.dirents)):
+			count = 0
+		case len(fid.dirents[tc.Offset:]) > int(tc.Count):
+			count = int(tc.Count)
+		default:
+			count = len(fid.dirents[tc.Offset:])
+		}
+
+		if dbg {
+			log.Printf("readdir: count %v @ offset %v", count, tc.Offset)
+		}
+		nextend := sort.SearchInts(fid.direntends, int(tc.Offset)+count)
+		if nextend < len(fid.direntends) {
+			if fid.direntends[nextend] > int(tc.Offset)+count {
+				if nextend > 0 {
+					count = fid.direntends[nextend-1] - int(tc.Offset)
+				} else {
+					count = 0
+				}
+			}
+		}
+		if dbg {
+			log.Printf("readdir: count adjusted %v @ offset %v", count, tc.Offset)
+		}
+		if count == 0 && int(tc.Offset) < len(fid.dirents) && len(fid.dirents) > 0 {
+			req.RespondError(&ninep.Error{"too small read size for dir entry", ninep.EINVAL})
+			return
+		}
+		copy(rc.Data, fid.dirents[tc.Offset:int(tc.Offset)+count])
+*/ 
+	}
 	// N.B. even if they ask for 0 bytes on some file systems it is important to pass
 	// through a zero byte read (not Unix, of course).
 	b := make([]byte, c)
