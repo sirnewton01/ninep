@@ -174,30 +174,16 @@ func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
 	return *d, nil
 }
 func (e FileServer) Rwstat(f rpc.FID, d rpc.Dir) error {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return nil
-	}
-	//fmt.Printf("stat(%v)\n", f)
-	return fmt.Errorf("Wstat: bad rpc.FID %v", f)
+	return fmt.Errorf("Permission denied")
 }
 func (e FileServer) Rremove(f rpc.FID) error {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return nil
-	}
-	//fmt.Printf("remove(%v)\n", f)
-	return fmt.Errorf("Remove: bad rpc.FID %v", f)
+	return fmt.Errorf("Permission denied")
 }
 
 func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error) {
-	e.mu.Lock()
-	f, ok := e.Files[fid]
-	e.mu.Unlock()
-	if !ok {
-		return nil, fmt.Errorf("Bad FID")
+	f, err := e.getFile(fid)
+	if err != nil {
+		return nil, err
 	}
 	if f.File == nil {
 		return nil, fmt.Errorf("FID not open")
@@ -213,13 +199,21 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 	return b[:n], nil
 }
 
-func (e FileServer) Rwrite(f rpc.FID, o rpc.Offset, c rpc.Count, b []byte) (rpc.Count, error) {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return c, nil
+func (e FileServer) Rwrite(fid rpc.FID, o rpc.Offset, c rpc.Count, b []byte) (rpc.Count, error) {
+	f, err := e.getFile(fid)
+	if err != nil {
+		return -1, err
 	}
-	return -1, fmt.Errorf("Write: bad rpc.FID %v", f)
+	if f.File == nil {
+		return -1, fmt.Errorf("FID not open")
+	}
+
+	// N.B. even if they ask for 0 bytes on some file systems it is important to pass
+	// through a zero byte write (not Unix, of course). Also, let the underlying file system
+	// manage the error if the open mode was wrong. No need to duplicate the logic.
+
+	n, err := f.File.WriteAt(b[:c], int64(o))
+	return rpc.Count(n), err
 }
 
 type ServerOpt func(*rpc.Server) error

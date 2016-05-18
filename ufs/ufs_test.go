@@ -3,6 +3,10 @@ package ufs
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
 	"testing"
 
 	"github.com/rminnich/ninep/rpc"
@@ -20,7 +24,44 @@ func TestNew(t *testing.T) {
 	t.Logf("n is %v", n)
 }
 
+// a simple prototype file system.
+type makeit struct {
+	n string      // name
+	m os.FileMode // mode
+	s string      // for symlinks or content
+}
+
+var tests = []makeit{
+	{
+		n: "ro",
+		m: 0444,
+		s: "",
+	},
+	{
+		n: "rw",
+		m: 0666,
+		s: "",
+	},
+	{
+		n: "wo",
+		m: 0222,
+		s: "",
+	},
+}
+
 func TestMount(t *testing.T) {
+	/* Create the simple file system. */
+	tmpdir, err := ioutil.TempDir(os.TempDir(), "hi.dir")
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	for i := range tests {
+		if err := ioutil.WriteFile(path.Join(tmpdir, tests[i].n), []byte("hi"), tests[i].m); err != nil {
+			t.Fatalf("%v", err)
+		}
+	}
+
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 
@@ -68,9 +109,11 @@ func TestMount(t *testing.T) {
 		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want err, got QIDS %v", w)
 	}
 	t.Logf("Walk is %v", w)
-	w, err = c.CallTwalk(0, 1, []string{"etc", "hosts"})
+	ro := strings.Split(path.Join(tmpdir, "ro"), "/")
+
+	w, err = c.CallTwalk(0, 1, ro)
 	if err != nil {
-		t.Fatalf("CallTwalk(0,1,[\"etc\", \"hosts\"]): want nil, got %v", err)
+		t.Fatalf("CallTwalk(0,1,%v): want nil, got %v", ro, err)
 	}
 	t.Logf("Walk is %v", w)
 
@@ -84,7 +127,7 @@ func TestMount(t *testing.T) {
 	}
 	of, _, err = c.CallTopen(1, rpc.OREAD)
 	if err != nil {
-		t.Fatalf("CallTopen(0, rpc.OREAD): want nil, got %v", nil)
+		t.Fatalf("CallTopen(1, rpc.OREAD): want nil, got %v", nil)
 	}
 	t.Logf("Open is %v", of)
 
@@ -92,11 +135,16 @@ func TestMount(t *testing.T) {
 	if err == nil {
 		t.Fatalf("CallTread(22, 0, 0): want err, got nil")
 	}
-	b, err = c.CallTread(1, 1, 22)
+	b, err = c.CallTread(1, 1, 1)
 	if err != nil {
-		t.Fatalf("CallTread(0, 22, 1): want nil, got %v", err)
+		t.Fatalf("CallTread(1, 1, 1): want nil, got %v", err)
 	}
 	t.Logf("read is %v", string(b))
+
+	/* make sure Twrite fails */
+	if _, err = c.CallTwrite(1, 0, 22, b); err == nil {
+		t.Fatalf("CallTwrite(1, 0, 22, b): want err, got nil")
+	}
 
 	d, err := c.CallTstat(1)
 	if err != nil {
@@ -125,5 +173,38 @@ func TestMount(t *testing.T) {
 		t.Fatalf("CallTstat(1): after clunk: want err, got nil")
 	}
 	t.Logf("stat is %v", d)
+
+	// fun with write
+	rw := strings.Split(path.Join(tmpdir, "rw"), "/")
+	w, err = c.CallTwalk(0, 1, rw)
+	if err != nil {
+		t.Fatalf("CallTwalk(0,1,%v): want nil, got %v", rw, err)
+	}
+	t.Logf("Walk is %v", w)
+
+	of, _, err = c.CallTopen(1, rpc.OREAD)
+	if err != nil {
+		t.Fatalf("CallTopen(1, rpc.OREAD): want nil, got %v", nil)
+	}
+	if err := c.CallTclunk(1); err != nil {
+		t.Fatalf("CallTclunk(1): want nil, got %v", err)
+	}
+	w, err = c.CallTwalk(0, 1, rw)
+	if err != nil {
+		t.Fatalf("CallTwalk(0,1,%v): want nil, got %v", rw, err)
+	}
+	t.Logf("Walk is %v", w)
+
+	of, _, err = c.CallTopen(1, rpc.OWRITE)
+	if err != nil {
+		t.Fatalf("CallTopen(0, rpc.OWRITE): want nil, got %v", err)
+	}
+	t.Logf("open OWRITE of is %v", of)
+	if _, err = c.CallTwrite(1, 1, 2, []byte("there")); err != nil {
+		t.Fatalf("CallTwrite(1, 0, 2, \"there\"): want nil, got %v", err)
+	}
+	if _, err = c.CallTwrite(22, 1, 2, []byte("there")); err == nil {
+		t.Fatalf("CallTwrite(22, 1, 2, \"there\"): want err, got nil")
+	}
 
 }
