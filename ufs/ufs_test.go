@@ -1,6 +1,7 @@
 package ufs
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -208,9 +209,14 @@ func TestMount(t *testing.T) {
 	}
 
 	// readdir test.
-	w, err = c.CallTwalk(0, 2, []string{})
+	w, err = c.CallTwalk(0, 3, []string{})
 	if err != nil {
-		t.Fatalf("CallTwalk(0,1,[]string{}): want nil, got %v", err)
+		t.Fatalf("CallTwalk(0,3,[]string{}): want nil, got %v", err)
+	}
+	t.Logf("Walk is %v", w)
+	w, err = c.CallTwalk(0, 2, strings.Split(tmpdir, "/"))
+	if err != nil {
+		t.Fatalf("CallTwalk(0,2,strings.Split(tmpdir, \"/\")): want nil, got %v", err)
 	}
 	t.Logf("Walk is %v", w)
 	of, _, err = c.CallTopen(2, rpc.OWRITE)
@@ -225,10 +231,29 @@ func TestMount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CallTopen(1, rpc.OREAD): want nil, got %v", nil)
 	}
-	if b, err = c.CallTread(2, 0, 256); err != nil {
-		t.Fatalf("CallTread(2, 0, 256): want nil, got %v", err)
+	var o rpc.Offset
+	var iter int
+	for iter < 10 {
+		iter++
+		b, err = c.CallTread(2, o, 256)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("CallTread(2, 0, 256): want nil, got %v", err)
+		}
+
+		dent, err := rpc.Unmarshaldir(bytes.NewBuffer(b))
+		if err != nil {
+			t.Errorf("Unmarshalldir: want nil, got %v", err)
+		}
+		t.Logf("dir read is %v", dent)
+		o += rpc.Offset(len(b))
 	}
-	t.Logf("dir read is %v", b)
+
+	if iter > 9 {
+		t.Errorf("Too many reads from the directory: want 3, got %v", iter)
+	}
 	if err := c.CallTclunk(2); err != nil {
 		t.Fatalf("CallTclunk(1): want nil, got %v", err)
 	}

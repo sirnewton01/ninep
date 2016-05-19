@@ -202,7 +202,7 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 			return nil, err
 		}
 
-		d9p, err := dirTo9p2000Dir(path.Base(f.fullName), st[0])
+		d9p, err := dirTo9p2000Dir(st[0].Name(), st[0])
 		if err != nil {
 			return nil, err
 		}
