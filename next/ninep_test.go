@@ -292,11 +292,11 @@ func (e *echo) Rread(f rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error) {
 	return nil, fmt.Errorf("Read: bad rpc.FID %v", f)
 }
 
-func (e *echo) Rwrite(f rpc.FID, o rpc.Offset, c rpc.Count, b []byte) (rpc.Count, error) {
+func (e *echo) Rwrite(f rpc.FID, o rpc.Offset, b []byte) (rpc.Count, error) {
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
-		return c, nil
+		return rpc.Count(len(b)), nil
 	}
 	return -1, fmt.Errorf("Write: bad rpc.FID %v", f)
 }
@@ -431,7 +431,7 @@ func TestTMessages(t *testing.T) {
 	}
 	t.Logf("Read is %v", d)
 
-	_, err = c.CallTwrite(rpc.FID(2), 0, 5, d)
+	_, err = c.CallTwrite(rpc.FID(2), 0, d)
 	if err != nil {
 		t.Fatalf("CallTread: want nil, got %v", err)
 	}
