@@ -276,7 +276,6 @@ type RreadPkt struct {
 type TwritePkt struct {
 	OFID FID
 	Off  Offset
-	TLen Count
 	Data []byte
 }
 
@@ -347,7 +346,7 @@ type NineServer interface {
 	Rclunk(FID) error
 	Rremove(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)
-	Rwrite(FID, Offset, Count, []byte) (Count, error)
+	Rwrite(FID, Offset, []byte) (Count, error)
 	Rflush(FID, FID) error
 }
 var (
