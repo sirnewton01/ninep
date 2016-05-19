@@ -53,6 +53,8 @@ func Dispatch(s *rpc.Server, b *bytes.Buffer, t rpc.MType) error {
 		return s.SrvRwalk(b)
 	case rpc.Topen:
 		return s.SrvRopen(b)
+	case rpc.Tcreate:
+		return s.SrvRcreate(b)
 	case rpc.Tclunk:
 		return s.SrvRclunk(b)
 	case rpc.Tstat:

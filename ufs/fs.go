@@ -137,8 +137,10 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	// this is quite unlikely, which is why we don't bother checking for it first.
-	if _, ok := e.Files[newfid]; ok {
-		return nil, fmt.Errorf("FID in use")
+	if fid != newfid {
+		if _, ok := e.Files[newfid]; ok {
+			return nil, fmt.Errorf("FID in use")
+		}
 	}
 	e.Files[newfid] = &File{fullName: p, QID: fileInfoToQID(st)}
 	return q, nil
@@ -172,7 +174,7 @@ func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mo
 	if perm&rpc.Perm(rpc.DMDIR) != 0 {
 		p := os.FileMode(int(perm) & 0777)
 		err := os.Mkdir(n, p)
-		_, q, err := stat(name)
+		_, q, err := stat(n)
 		if err != nil {
 			return rpc.QID{}, 0, err
 		}
@@ -186,11 +188,11 @@ func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mo
 
 	m := OModeToUnixFlags(mode) | os.O_CREATE | os.O_TRUNC
 	p := os.FileMode(perm) & 0777
-	of, err := os.OpenFile(name, m, p)
+	of, err := os.OpenFile(n, m, p)
 	if err != nil {
 		return rpc.QID{}, 0, err
 	}
-	_, q, err := stat(name)
+	_, q, err := stat(n)
 	if err != nil {
 		return rpc.QID{}, 0, err
 	}

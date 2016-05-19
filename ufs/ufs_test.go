@@ -209,11 +209,6 @@ func TestMount(t *testing.T) {
 	}
 
 	// readdir test.
-	w, err = c.CallTwalk(0, 3, []string{})
-	if err != nil {
-		t.Fatalf("CallTwalk(0,3,[]string{}): want nil, got %v", err)
-	}
-	t.Logf("Walk is %v", w)
 	w, err = c.CallTwalk(0, 2, strings.Split(tmpdir, "/"))
 	if err != nil {
 		t.Fatalf("CallTwalk(0,2,strings.Split(tmpdir, \"/\")): want nil, got %v", err)
@@ -257,4 +252,43 @@ func TestMount(t *testing.T) {
 	if err := c.CallTclunk(2); err != nil {
 		t.Fatalf("CallTclunk(1): want nil, got %v", err)
 	}
+	// Create tests
+	w, err = c.CallTwalk(0, 3, []string{})
+	if err != nil {
+		t.Fatalf("CallTwalk(0,3,[]string{}): want nil, got %v", err)
+	}
+	w, err = c.CallTwalk(3, 3, strings.Split(tmpdir, "/"))
+	if err != nil {
+		t.Fatalf("CallTwalk(0,3,[]string{}): want nil, got %v", err)
+	}
+	t.Logf("Walk is %v", w)
+	of, _, err = c.CallTcreate(3, "xxx", 077, 0)
+	if err != nil {
+		t.Fatalf("CallTcreate(\"xxx\", 077, 0): want nil, got %v", err)
+	}
+	xxx := path.Join(tmpdir, "xxx")
+	fi, err := os.Stat(xxx)
+	if err != nil {
+		t.Fatalf("After create, check %v: want nil, got %v", xxx, err)
+	}
+	t.Logf("Stat of created file: %v", fi)
+
+	// Test mkdir
+	w, err = c.CallTwalk(0, 4, strings.Split(tmpdir, "/"))
+	if err != nil {
+		t.Fatalf("CallTwalk(0,4,%v): want nil, got %v", tmpdir, err)
+	}
+	of, _, err = c.CallTcreate(4, "yyy", rpc.DMDIR|0777, 0)
+	if err != nil {
+		t.Fatalf("CallTcreate(\"yyy\", 0777, 0): want nil, got %v", err)
+	}
+	yyy := path.Join(tmpdir, "yyy")
+	fi, err = os.Stat(yyy)
+	if err != nil {
+		t.Fatalf("After create, check %v: want nil, got %v", yyy, err)
+	}
+	if !fi.IsDir() {
+		t.Fatalf("After mkdir, %v, not a directory", yyy)
+	}
+	t.Logf("Stat of created file: %v", fi)
 }
