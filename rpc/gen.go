@@ -107,6 +107,25 @@ var (
 		{n: "read", t: rpc.TreadPkt{}, tn: "Tread", r: rpc.RreadPkt{}, rn: "Rread"},
 		{n: "write", t: rpc.TwritePkt{}, tn: "Twrite", r: rpc.RwritePkt{}, rn: "Rwrite"},
 	}
+	msfunc = template.Must(template.New("ms").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, {{.MParms}}) {
+b.Reset()
+{{.MCode}}
+return
+}
+`))
+	usfunc = template.Must(template.New("us").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}} err error) {
+var u [8]uint8
+var l uint64
+{{.UCode}}
+if b.Len() > 0 {
+err = fmt.Errorf("Packet too long: %d bytes left over after decode", b.Len())
+}
+return
+}
+`))
+
+
+
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
 b.Reset()
@@ -496,6 +515,25 @@ func main() {
 	}
 	b.WriteString(serverError)
 
+	// yeah, it's a hack. 
+	dir := &emitter{"dir", "dir", &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, "dir", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
+	if err := genEncodeStruct(rpc.DirPkt{}, "", dir); err != nil {
+		log.Fatalf("%v", err)
+	}
+	if err := genDecodeStruct(rpc.DirPkt{}, "", dir); err != nil {
+		log.Fatalf("%v", err)
+	}
+	if err := genParms(rpc.DirPkt{}, "dir", dir); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	if err := genRets(rpc.DirPkt{}, "dir", dir); err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	msfunc.Execute(b, dir)
+	usfunc.Execute(b, dir)
+	
 	if err := ioutil.WriteFile("genout.go", b.Bytes(), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}

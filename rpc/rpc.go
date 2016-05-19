@@ -287,6 +287,10 @@ type RerrorPkt struct {
 	Error string
 }
 
+type DirPkt struct {
+     D Dir
+}
+
 type RPCCall struct {
 	b     []byte
 	Reply chan []byte
