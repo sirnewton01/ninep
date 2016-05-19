@@ -142,8 +142,8 @@ func TestMount(t *testing.T) {
 	t.Logf("read is %v", string(b))
 
 	/* make sure Twrite fails */
-	if _, err = c.CallTwrite(1, 0, 22, b); err == nil {
-		t.Fatalf("CallTwrite(1, 0, 22, b): want err, got nil")
+	if _, err = c.CallTwrite(1, 0, b); err == nil {
+		t.Fatalf("CallTwrite(1, 0, b): want err, got nil")
 	}
 
 	d, err := c.CallTstat(1)
@@ -200,11 +200,11 @@ func TestMount(t *testing.T) {
 		t.Fatalf("CallTopen(0, rpc.OWRITE): want nil, got %v", err)
 	}
 	t.Logf("open OWRITE of is %v", of)
-	if _, err = c.CallTwrite(1, 1, 2, []byte("there")); err != nil {
-		t.Fatalf("CallTwrite(1, 0, 2, \"there\"): want nil, got %v", err)
+	if _, err = c.CallTwrite(1, 1, []byte("there")); err != nil {
+		t.Fatalf("CallTwrite(1, 0, \"there\"): want nil, got %v", err)
 	}
-	if _, err = c.CallTwrite(22, 1, 2, []byte("there")); err == nil {
-		t.Fatalf("CallTwrite(22, 1, 2, \"there\"): want err, got nil")
+	if _, err = c.CallTwrite(22, 1, []byte("there")); err == nil {
+		t.Fatalf("CallTwrite(22, 1, \"there\"): want err, got nil")
 	}
 
 }
