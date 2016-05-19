@@ -11,7 +11,9 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/rminnich/ninep/next"
 	"github.com/rminnich/ninep/rpc"
@@ -26,6 +28,7 @@ type File struct {
 type FileServer struct {
 	mu        *sync.Mutex
 	root      *File
+	rootPath string
 	Versioned bool
 	Files     map[rpc.FID]*File
 	IOunit    rpc.MaxSize
@@ -227,8 +230,92 @@ func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
 	}
 	return *d, nil
 }
-func (e FileServer) Rwstat(f rpc.FID, d rpc.Dir) error {
-	return fmt.Errorf("Permission denied")
+func (e FileServer) Rwstat(fid rpc.FID, dir rpc.Dir) error {
+	var changed bool
+	f, err := e.getFile(fid)
+	if err != nil {
+	   return err
+	}
+
+	if dir.Mode != 0xFFFFFFFF {
+		changed = true
+		mode := dir.Mode & 0777
+		if err := os.Chmod(f.fullName, os.FileMode(mode)); err != nil {
+		   return err
+		}
+	}
+
+	// Try to find local uid, gid by name.
+	if (dir.User != "" || dir.Group != "") {
+		return fmt.Errorf("Permission denied")
+		changed = true
+	}
+
+/*
+	if uid != ninep.NOUID || gid != ninep.NOUID {
+		changed = true
+		e := os.Chown(fid.path, int(uid), int(gid))
+		if e != nil {
+			req.RespondError(toError(e))
+			return
+		}
+	}
+*/
+
+	if dir.Name != "" {
+		changed = true
+		// If we path.Join dir.Name to / before adding it to
+		// the fid path, that ensures nobody gets to walk out of the
+		// root of this server.
+		newname := path.Join(path.Dir(f.fullName), path.Join("/", dir.Name))
+
+		// absolute renaming. Ufs can do this, so let's support it.
+		// We'll allow an absolute path in the Name and, if it is,
+		// we will make it relative to root. This is a gigantic performance
+		// improvement in systems that allow it.
+		if filepath.IsAbs(f.fullName) {
+			newname = path.Join(e.rootPath, dir.Name)
+		}
+
+		if err := os.Rename(f.fullName, newname); err != nil {
+			return err
+		}
+		f.fullName = newname
+	}
+
+	if dir.Length != 0xFFFFFFFFFFFFFFFF {
+		changed = true
+		if err := os.Truncate(f.fullName, int64(dir.Length)); err != nil {
+			return err
+		}
+	}
+
+	// If either mtime or atime need to be changed, then
+	// we must change both.
+	if dir.Mtime != ^uint32(0) || dir.Atime != ^uint32(0) {
+		changed = true
+		mt, at := time.Unix(int64(dir.Mtime), 0), time.Unix(int64(dir.Atime), 0)
+		if cmt, cat := (dir.Mtime == ^uint32(0)), (dir.Atime == ^uint32(0)); cmt || cat {
+			st, err := os.Stat(f.fullName)
+			if err != nil {
+				return err
+			}
+			switch cmt {
+			case true:
+				mt = st.ModTime()
+			default:
+				//at = atime(st.Sys().(*syscall.Stat_t))
+			}
+		}
+		if err := os.Chtimes(f.fullName, at, mt); err != nil {
+			return err
+		}
+	}
+
+	if !changed && f.File != nil {
+		f.File.Sync()
+	}
+	return nil
 }
 
 // Rremove removes the file. The question of whether the file continues to be accessible
@@ -307,6 +394,7 @@ func NewUFS(opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	f := FileServer{}
 	f.Files = make(map[rpc.FID]*File)
 	f.mu = &sync.Mutex{}
+	f.rootPath = "/" // for now.
 	// any opts for the ufs layer can be added here too ...
 	s, err := next.NewServer(f, opts...)
 	if err != nil {
