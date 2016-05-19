@@ -291,4 +291,18 @@ func TestMount(t *testing.T) {
 		t.Fatalf("After mkdir, %v, not a directory", yyy)
 	}
 	t.Logf("Stat of created file: %v", fi)
+
+	// test remove
+	if err = c.CallTremove(3); err != nil {
+		t.Fatalf("CallTremove(3) failed: want nil, got %v", err)
+	}
+	if _, err := os.Stat(xxx); err == nil {
+		t.Fatalf("After remove(%v); stat returns nil, not err", xxx)
+	}
+	if err = c.CallTremove(4); err != nil {
+		t.Fatalf("CallTremove(4) failed: want nil, got %v", err)
+	}
+	if _, err := os.Stat(yyy); err == nil {
+		t.Fatalf("After remove(%v); stat returns nil, not err", yyy)
+	}
 }

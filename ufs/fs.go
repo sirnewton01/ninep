@@ -178,11 +178,12 @@ func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mo
 		if err != nil {
 			return rpc.QID{}, 0, err
 		}
-		f.QID = q
 		f.File, err = os.Open(n)
 		if err != nil {
 			return rpc.QID{}, 0, err
 		}
+		f.fullName = n
+		f.QID = q
 		return q, 8000, err
 	}
 
@@ -229,8 +230,15 @@ func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
 func (e FileServer) Rwstat(f rpc.FID, d rpc.Dir) error {
 	return fmt.Errorf("Permission denied")
 }
-func (e FileServer) Rremove(f rpc.FID) error {
-	return fmt.Errorf("Permission denied")
+
+// Rremove removes the file. The question of whether the file continues to be accessible
+// is system dependent.
+func (e FileServer) Rremove(fid rpc.FID) error {
+	f, err := e.getFile(fid)
+	if err != nil {
+		return err
+	}
+	return os.Remove(f.fullName)
 }
 
 func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error) {
