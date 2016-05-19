@@ -95,12 +95,7 @@ func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (
 }
 
 func (e FileServer) Rflush(f rpc.FID, t rpc.FID) error {
-	switch int(f) {
-	case 2:
-		// Make it fancier, later.
-		return nil
-	}
-	return fmt.Errorf("Read: bad rpc.FID %v", f)
+	return nil
 }
 
 func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QID, error) {
