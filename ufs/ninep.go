@@ -11,7 +11,7 @@ import (
 	"github.com/rminnich/ninep/rpc"
 )
 
-func omode2uflags(mode rpc.Mode) int {
+func OModeToUnixFlags(mode rpc.Mode) int {
 	ret := int(0)
 	switch mode & 3 {
 	case rpc.OREAD:
@@ -58,35 +58,7 @@ func isChar(d os.FileInfo) bool {
 	return (stat.Mode & syscall.S_IFMT) == syscall.S_IFCHR
 }
 
-/*
-func omode2uflags(mode uint8) int {
-	ret := int(0)
-	switch mode & 3 {
-	case ninep.OREAD:
-		ret = os.O_RDONLY
-		break
-
-	case ninep.ORDWR:
-		ret = os.O_RDWR
-		break
-
-	case ninep.OWRITE:
-		ret = os.O_WRONLY
-		break
-
-	case ninep.OEXEC:
-		ret = os.O_RDONLY
-		break
-	}
-
-	if mode&ninep.OTRUNC != 0 {
-		ret |= os.O_TRUNC
-	}
-
-	return ret
-}
-*/
-func dirToQID(d os.FileInfo) rpc.QID {
+func fileInfoToQID(d os.FileInfo) rpc.QID {
 	var qid rpc.QID
 	sysif := d.Sys()
 
@@ -125,15 +97,15 @@ func dirTo9p2000Mode(d os.FileInfo) uint32 {
 	return ret
 }
 
-func dirTo9p2000Dir(s string, fi os.FileInfo) (*rpc.Dir, error) {
+func dirTo9p2000Dir(fi os.FileInfo) (*rpc.Dir, error) {
 	d := &rpc.Dir{}
-	d.QID = dirToQID(fi)
+	d.QID = fileInfoToQID(fi)
 	d.Mode = dirTo9p2000Mode(fi)
 	// TODO: use info on systems that have it.
 	d.Atime = uint32(fi.ModTime().Unix()) // uint32(atime(sysMode).Unix())
 	d.Mtime = uint32(fi.ModTime().Unix())
 	d.Length = uint64(fi.Size())
-	d.Name = s
+	d.Name = fi.Name()
 	d.User = "root"
 	d.Group = "root"
 

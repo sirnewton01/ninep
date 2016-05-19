@@ -36,6 +36,20 @@ var (
 	root  = flag.String("root", "/", "Set the root for all attaches")
 )
 
+func stat(s string) (*rpc.Dir, rpc.QID, error) {
+	var q rpc.QID
+	st, err := os.Lstat(s)
+	if err != nil {
+		return nil, q, fmt.Errorf("Enoent")
+	}
+	d, err := dirTo9p2000Dir(st)
+	if err != nil {
+		return nil, q, nil
+	}
+	q = fileInfoToQID(st)
+	return d, q, nil
+}
+
 func (e FileServer) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
@@ -71,7 +85,7 @@ func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (
 		return rpc.QID{}, err
 	}
 	r := &File{fullName: aname}
-	r.QID = dirToQID(st)
+	r.QID = fileInfoToQID(st)
 	e.Files[fid] = r
 	e.root = r
 	return r.QID, nil
@@ -114,7 +128,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 		if err != nil {
 			return nil, fmt.Errorf("ENOENT")
 		}
-		q[i] = dirToQID(st)
+		q[i] = fileInfoToQID(st)
 	}
 	st, err := os.Lstat(p)
 	if err != nil {
@@ -126,7 +140,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	if _, ok := e.Files[newfid]; ok {
 		return nil, fmt.Errorf("FID in use")
 	}
-	e.Files[newfid] = &File{fullName: p, QID: dirToQID(st)}
+	e.Files[newfid] = &File{fullName: p, QID: fileInfoToQID(st)}
 	return q, nil
 }
 
@@ -139,7 +153,7 @@ func (e FileServer) Ropen(fid rpc.FID, mode rpc.Mode) (rpc.QID, rpc.MaxSize, err
 	}
 
 	var err error
-	f.File, err = os.OpenFile(f.fullName, omode2uflags(mode), 0)
+	f.File, err = os.OpenFile(f.fullName, OModeToUnixFlags(mode), 0)
 	if err != nil {
 		return rpc.QID{}, 0, err
 	}
@@ -147,8 +161,43 @@ func (e FileServer) Ropen(fid rpc.FID, mode rpc.Mode) (rpc.QID, rpc.MaxSize, err
 	return f.QID, e.IOunit, nil
 }
 func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mode) (rpc.QID, rpc.MaxSize, error) {
-	//fmt.Printf("open(%v, %v\n", fid, mode)
-	return rpc.QID{}, 5000, nil
+	f, err := e.getFile(fid)
+	if err != nil {
+		return rpc.QID{}, 0, err
+	}
+	if f.File != nil {
+		return rpc.QID{}, 0, fmt.Errorf("FID already open")
+	}
+	n := path.Join(f.fullName, name)
+	if perm&rpc.Perm(rpc.DMDIR) != 0 {
+		p := os.FileMode(int(perm) & 0777)
+		err := os.Mkdir(n, p)
+		_, q, err := stat(name)
+		if err != nil {
+			return rpc.QID{}, 0, err
+		}
+		f.QID = q
+		f.File, err = os.Open(n)
+		if err != nil {
+			return rpc.QID{}, 0, err
+		}
+		return q, 8000, err
+	}
+
+	m := OModeToUnixFlags(mode) | os.O_CREATE | os.O_TRUNC
+	p := os.FileMode(perm) & 0777
+	of, err := os.OpenFile(name, m, p)
+	if err != nil {
+		return rpc.QID{}, 0, err
+	}
+	_, q, err := stat(name)
+	if err != nil {
+		return rpc.QID{}, 0, err
+	}
+	f.fullName = n
+	f.QID = q
+	f.File = of
+	return q, 8000, err
 }
 func (e FileServer) Rclunk(fid rpc.FID) error {
 	e.mu.Lock()
@@ -169,7 +218,7 @@ func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
 	if err != nil {
 		return rpc.Dir{}, fmt.Errorf("ENOENT")
 	}
-	d, err := dirTo9p2000Dir(path.Base(f.fullName), st)
+	d, err := dirTo9p2000Dir(st)
 	if err != nil {
 		return rpc.Dir{}, nil
 	}
@@ -202,7 +251,7 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 			return nil, err
 		}
 
-		d9p, err := dirTo9p2000Dir(st[0].Name(), st[0])
+		d9p, err := dirTo9p2000Dir(st[0])
 		if err != nil {
 			return nil, err
 		}

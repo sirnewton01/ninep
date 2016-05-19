@@ -88,13 +88,6 @@ const (
 	DMMOUNT     = 0x10000000 // mode bit for mounted channel
 	DMAUTH      = 0x08000000 // mode bit for authentication file
 	DMTMP       = 0x04000000 // mode bit for non-backed-up file
-	DMSYMLINK   = 0x02000000 // mode bit for symbolic link (Unix, 9P2000.u)
-	DMLINK      = 0x01000000 // mode bit for hard link (Unix, 9P2000.u)
-	DMDEVICE    = 0x00800000 // mode bit for device file (Unix, 9P2000.u)
-	DMNAMEDPIPE = 0x00200000 // mode bit for named pipe (Unix, 9P2000.u)
-	DMSOCKET    = 0x00100000 // mode bit for socket (Unix, 9P2000.u)
-	DMSETUID    = 0x00080000 // mode bit for setuid (Unix, 9P2000.u)
-	DMSETGID    = 0x00040000 // mode bit for setgid (Unix, 9P2000.u)
 	DMREAD      = 0x4        // mode bit for read permission
 	DMWRITE     = 0x2        // mode bit for write permission
 	DMEXEC      = 0x1        // mode bit for execute permission
@@ -129,7 +122,7 @@ type (
 	FID        uint32
 	MaxSize    uint32
 	Count      int32
-	Perm       int32
+	Perm       uint32
 	Offset     uint64
 	Data       []byte
 )

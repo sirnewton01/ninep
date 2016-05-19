@@ -236,7 +236,7 @@ func TestMount(t *testing.T) {
 	for iter < 10 {
 		iter++
 		b, err = c.CallTread(2, o, 256)
-		if err == io.EOF {
+		if fmt.Sprintf("%v", err) == "EOF" {
 			break
 		}
 		if err != nil {
