@@ -96,12 +96,12 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	if len(paths) == 0 {
 		e.mu.Lock()
 		defer e.mu.Unlock()
-		of, ok := e.Files[newfid]
+		_, ok := e.Files[newfid]
 		if ok {
 			return nil, fmt.Errorf("FID in use")
 		}
-		e.Files[newfid] = of
-		return []rpc.QID{of.QID}, nil
+		e.Files[newfid] = f
+		return []rpc.QID{f.QID}, nil
 	}
 	p := f.fullName
 	q := make([]rpc.QID, len(paths))
