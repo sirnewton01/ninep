@@ -207,4 +207,29 @@ func TestMount(t *testing.T) {
 		t.Fatalf("CallTwrite(22, 1, \"there\"): want err, got nil")
 	}
 
+	// readdir test.
+	w, err = c.CallTwalk(0, 2, []string{})
+	if err != nil {
+		t.Fatalf("CallTwalk(0,1,[]string{}): want nil, got %v", err)
+	}
+	t.Logf("Walk is %v", w)
+	of, _, err = c.CallTopen(2, rpc.OWRITE)
+	if err == nil {
+		t.Fatalf("CallTopen(2, rpc.OWRITE) on /: want err, got nil")
+	}
+	of, _, err = c.CallTopen(2, rpc.ORDWR)
+	if err == nil {
+		t.Fatalf("CallTopen(2, rpc.ORDWR) on /: want err, got nil")
+	}
+	of, _, err = c.CallTopen(2, rpc.OREAD)
+	if err != nil {
+		t.Fatalf("CallTopen(1, rpc.OREAD): want nil, got %v", nil)
+	}
+	if b, err = c.CallTread(2, 0, 256); err != nil {
+		t.Fatalf("CallTread(2, 0, 256): want nil, got %v", err)
+	}
+	t.Logf("dir read is %v", b)
+	if err := c.CallTclunk(2); err != nil {
+		t.Fatalf("CallTclunk(1): want nil, got %v", err)
+	}
 }

@@ -191,7 +191,6 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 		return nil, fmt.Errorf("FID not open")
 	}
 	if f.QID.Type&rpc.QTDIR != 0 {
-		return nil, fmt.Errorf("Permission denied")
 		if o == 0 {
 			if _, err := f.File.Seek(0, io.SeekStart); err != nil {
 				return nil, err
