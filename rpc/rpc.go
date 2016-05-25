@@ -576,3 +576,7 @@ func (s *Server) readNetPackets() {
 func (s *Server) Start() {
 	go s.readNetPackets()
 }
+
+func (s *Server) NineServer() NineServer {
+	return s.NS
+}
