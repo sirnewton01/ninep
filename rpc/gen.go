@@ -108,8 +108,12 @@ var (
 		{n: "write", t: rpc.TwritePkt{}, tn: "Twrite", r: rpc.RwritePkt{}, rn: "Rwrite"},
 	}
 	msfunc = template.Must(template.New("ms").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, {{.MParms}}) {
+var l uint64
 b.Reset()
+b.Write([]byte{0,0,})
 {{.MCode}}
+l = uint64(b.Len()) - 2
+copy(b.Bytes(), []byte{uint8(l), uint8(l>>8)})
 return
 }
 `))
@@ -117,6 +121,7 @@ return
 var u [8]uint8
 var l uint64
 {{.UCode}}
+_ = b.Next(2) // eat the length too
 if b.Len() > 0 {
 err = fmt.Errorf("Packet too long: %d bytes left over after decode", b.Len())
 }

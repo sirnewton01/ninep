@@ -141,7 +141,6 @@ type QID struct {
 
 // Dir describes a file
 type Dir struct {
-	Size    uint16 // size-2 of the Dir on the wire
 	Type    uint16
 	Dev     uint32
 	QID            // file's QID
@@ -245,12 +244,12 @@ type TstatPkt struct {
 }
 
 type RstatPkt struct {
-	D Dir
+	B bytes.Buffer
 }
 
 type TwstatPkt struct {
 	OFID FID
-	D    Dir
+	B []byte
 }
 
 type RwstatPkt struct {
@@ -338,8 +337,8 @@ type NineServer interface {
 	Rwalk(FID, FID, []string) ([]QID, error)
 	Ropen(FID, Mode) (QID, MaxSize, error)
 	Rcreate(FID, string, Perm, Mode) (QID, MaxSize, error)
-	Rstat(FID) (Dir, error)
-	Rwstat(FID, Dir) error
+	Rstat(FID) ([]byte, error)
+	Rwstat(FID, []byte) error
 	Rclunk(FID) error
 	Rremove(FID) error
 	Rread(FID, Offset, Count) ([]byte, error)

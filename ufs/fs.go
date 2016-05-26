@@ -210,28 +210,34 @@ func (e FileServer) Rclunk(fid rpc.FID) error {
 	return nil
 }
 
-func (e FileServer) Rstat(fid rpc.FID) (rpc.Dir, error) {
+func (e FileServer) Rstat(fid rpc.FID) ([]byte, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
-		return rpc.Dir{}, err
+		return []byte{}, err
 	}
 	st, err := os.Lstat(f.fullName)
 	if err != nil {
-		return rpc.Dir{}, fmt.Errorf("ENOENT")
+		return []byte{}, fmt.Errorf("ENOENT")
 	}
 	d, err := dirTo9p2000Dir(st)
 	if err != nil {
-		return rpc.Dir{}, nil
+		return []byte{}, nil
 	}
-	return *d, nil
+	var b bytes.Buffer
+	rpc.Marshaldir(&b, *d)
+fmt.Printf("Returning %d for stat\n", b.Len())
+	return b.Bytes(), nil
 }
-func (e FileServer) Rwstat(fid rpc.FID, dir rpc.Dir) error {
+func (e FileServer) Rwstat(fid rpc.FID, b []byte) error {
 	var changed bool
 	f, err := e.getFile(fid)
 	if err != nil {
 	   return err
 	}
-
+	dir, err := rpc.Unmarshaldir(bytes.NewBuffer(b))
+	if err != nil {
+	   return err
+	   }
 	if dir.Mode != 0xFFFFFFFF {
 		changed = true
 		mode := dir.Mode & 0777

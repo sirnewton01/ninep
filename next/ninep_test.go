@@ -256,22 +256,22 @@ func (e *echo) Rclunk(f rpc.FID) error {
 	//fmt.Printf("clunk(%v)\n", f)
 	return fmt.Errorf("Clunk: bad rpc.FID %v", f)
 }
-func (e *echo) Rstat(f rpc.FID) (rpc.Dir, error) {
+func (e *echo) Rstat(f rpc.FID) ([]byte, error) {
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
-		return rpc.Dir{}, nil
+		return []byte{}, nil
 	}
 	//fmt.Printf("stat(%v)\n", f)
-	return rpc.Dir{}, fmt.Errorf("Stat: bad rpc.FID %v", f)
+	return []byte{}, fmt.Errorf("Stat: bad rpc.FID %v", f)
 }
-func (e *echo) Rwstat(f rpc.FID, d rpc.Dir) error {
+func (e *echo) Rwstat(f rpc.FID, s []byte) error {
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
 		return nil
 	}
-	//fmt.Printf("stat(%v)\n", f)
+	//fmt.Printf("stat(%v)\n", f)y
 	return fmt.Errorf("Wstat: bad rpc.FID %v", f)
 }
 func (e *echo) Rremove(f rpc.FID) error {
@@ -458,11 +458,11 @@ func TestTMessages(t *testing.T) {
 	if _, err := c.CallTstat(rpc.FID(1)); err == nil {
 		t.Fatalf("CallTstat: want err, got nil")
 	}
-	if err := c.CallTwstat(rpc.FID(2), rpc.Dir{}); err != nil {
+	if err := c.CallTwstat(rpc.FID(2), []byte{}); err != nil {
 		t.Fatalf("CallTwstat: want nil, got %v", err)
 	}
 
-	if err := c.CallTwstat(rpc.FID(1), rpc.Dir{}); err == nil {
+	if err := c.CallTwstat(rpc.FID(1), []byte{}); err == nil {
 		t.Fatalf("CallTwstat: want err, got nil")
 	}
 	if err := c.CallTflush(rpc.FID(2), rpc.FID(3)); err != nil {
