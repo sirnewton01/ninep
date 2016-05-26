@@ -72,7 +72,7 @@ func (e FileServer) getFile(fid rpc.FID) (*File, error) {
 	return f, nil
 }
 
-func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, aname string, _ string) (rpc.QID, error) {
+func (e FileServer) Rattach(fid rpc.FID, afid rpc.FID, uname string, aname string) (rpc.QID, error) {
 	if afid != rpc.NOFID {
 		return rpc.QID{}, fmt.Errorf("We don't do auth attach")
 	}
