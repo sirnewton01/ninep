@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,6 +16,10 @@ import (
 
 	"github.com/rminnich/ninep/next"
 	"github.com/rminnich/ninep/rpc"
+)
+
+const (
+	SeekStart = 0
 )
 
 type File struct {
@@ -28,7 +31,7 @@ type File struct {
 type FileServer struct {
 	mu        *sync.Mutex
 	root      *File
-	rootPath string
+	rootPath  string
 	Versioned bool
 	Files     map[rpc.FID]*File
 	IOunit    rpc.MaxSize
@@ -225,43 +228,43 @@ func (e FileServer) Rstat(fid rpc.FID) ([]byte, error) {
 	}
 	var b bytes.Buffer
 	rpc.Marshaldir(&b, *d)
-fmt.Printf("Returning %d for stat\n", b.Len())
+	fmt.Printf("Returning %d for stat\n", b.Len())
 	return b.Bytes(), nil
 }
 func (e FileServer) Rwstat(fid rpc.FID, b []byte) error {
 	var changed bool
 	f, err := e.getFile(fid)
 	if err != nil {
-	   return err
+		return err
 	}
 	dir, err := rpc.Unmarshaldir(bytes.NewBuffer(b))
 	if err != nil {
-	   return err
-	   }
+		return err
+	}
 	if dir.Mode != 0xFFFFFFFF {
 		changed = true
 		mode := dir.Mode & 0777
 		if err := os.Chmod(f.fullName, os.FileMode(mode)); err != nil {
-		   return err
+			return err
 		}
 	}
 
 	// Try to find local uid, gid by name.
-	if (dir.User != "" || dir.Group != "") {
+	if dir.User != "" || dir.Group != "" {
 		return fmt.Errorf("Permission denied")
 		changed = true
 	}
 
-/*
-	if uid != ninep.NOUID || gid != ninep.NOUID {
-		changed = true
-		e := os.Chown(fid.path, int(uid), int(gid))
-		if e != nil {
-			req.RespondError(toError(e))
-			return
+	/*
+		if uid != ninep.NOUID || gid != ninep.NOUID {
+			changed = true
+			e := os.Chown(fid.path, int(uid), int(gid))
+			if e != nil {
+				req.RespondError(toError(e))
+				return
+			}
 		}
-	}
-*/
+	*/
 
 	if dir.Name != "" {
 		changed = true
@@ -339,7 +342,7 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 	}
 	if f.QID.Type&rpc.QTDIR != 0 {
 		if o == 0 {
-			if _, err := f.File.Seek(0, io.SeekStart); err != nil {
+			if _, err := f.File.Seek(0, SeekStart); err != nil {
 				return nil, err
 			}
 		}

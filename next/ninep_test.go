@@ -204,7 +204,7 @@ func TestTags(t *testing.T) {
 }
 
 type echo struct {
-	qids      map[rpc.FID]rpc.QID
+	qids map[rpc.FID]rpc.QID
 }
 
 func (e *echo) Rversion(msize rpc.MaxSize, version string) (rpc.MaxSize, string, error) {
@@ -350,7 +350,7 @@ func TestTMessages(t *testing.T) {
 	},
 		func(c *rpc.Client) error {
 			c.Msize = 8192
-			c.Trace = print// t.Logf
+			c.Trace = print // t.Logf
 			return nil
 		})
 	if err != nil {
@@ -361,7 +361,7 @@ func TestTMessages(t *testing.T) {
 	e := &echo{}
 	s, err := NewServer(e, func(s *rpc.Server) error {
 		s.FromNet, s.ToNet = sr, sw
-		s.Trace = print// t.Logf
+		s.Trace = print // t.Logf
 		s.NS = e
 		return nil
 	})

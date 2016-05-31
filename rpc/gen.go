@@ -129,8 +129,6 @@ return
 }
 `))
 
-
-
 	mfunc = template.Must(template.New("mt").Parse(`func Marshal{{.MFunc}}Pkt (b *bytes.Buffer, t Tag, {{.MParms}}) {
 var l uint64
 b.Reset()
@@ -421,6 +419,8 @@ func tn(f reflect.Value) string {
 		switch t {
 		case "[]rpc.QID":
 			n = "[]QID"
+		case "[]rpc.DataCnt16":
+			n = "[]byte"
 		default:
 			n = t
 		}
@@ -533,7 +533,7 @@ func main() {
 	}
 	b.WriteString(serverError)
 
-	// yeah, it's a hack. 
+	// yeah, it's a hack.
 	dir := &emitter{"dir", "dir", &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, "dir", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
 	if err := genEncodeStruct(rpc.DirPkt{}, "", dir); err != nil {
 		log.Fatalf("%v", err)
@@ -551,7 +551,7 @@ func main() {
 
 	msfunc.Execute(b, dir)
 	usfunc.Execute(b, dir)
-	
+
 	if err := ioutil.WriteFile("genout.go", b.Bytes(), 0600); err != nil {
 		log.Fatalf("%v", err)
 	}

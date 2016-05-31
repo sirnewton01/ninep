@@ -5,12 +5,12 @@
 package rpc
 
 import (
-	"sync/atomic"
+	"bytes"
 	"fmt"
 	"io"
 	"log"
-	"bytes"
 	"runtime"
+	"sync/atomic"
 )
 
 // 9P2000 message types
@@ -82,15 +82,15 @@ const (
 
 // File modes
 const (
-	DMDIR       = 0x80000000 // mode bit for directories
-	DMAPPEND    = 0x40000000 // mode bit for append only files
-	DMEXCL      = 0x20000000 // mode bit for exclusive use files
-	DMMOUNT     = 0x10000000 // mode bit for mounted channel
-	DMAUTH      = 0x08000000 // mode bit for authentication file
-	DMTMP       = 0x04000000 // mode bit for non-backed-up file
-	DMREAD      = 0x4        // mode bit for read permission
-	DMWRITE     = 0x2        // mode bit for write permission
-	DMEXEC      = 0x1        // mode bit for execute permission
+	DMDIR    = 0x80000000 // mode bit for directories
+	DMAPPEND = 0x40000000 // mode bit for append only files
+	DMEXCL   = 0x20000000 // mode bit for exclusive use files
+	DMMOUNT  = 0x10000000 // mode bit for mounted channel
+	DMAUTH   = 0x08000000 // mode bit for authentication file
+	DMTMP    = 0x04000000 // mode bit for non-backed-up file
+	DMREAD   = 0x4        // mode bit for read permission
+	DMWRITE  = 0x2        // mode bit for write permission
+	DMEXEC   = 0x1        // mode bit for execute permission
 )
 
 const (
@@ -125,12 +125,16 @@ type (
 	Perm       uint32
 	Offset     uint64
 	Data       []byte
-	DataCnt16  byte // []byte with a 16-bit count.
+	// Some []byte fields are encoded with a 16-bit length, e.g. stat data.
+	// We use this type to tag such fields. The parameters are still []byte,
+	// this was just the only way I could think of to make the stub generator do the right
+	// thing.
+	DataCnt16 byte // []byte with a 16-bit count.
 )
 
 // Error represents a 9P2000 error
 type Error struct {
-	Err      string
+	Err string
 }
 
 // File identifier
@@ -155,7 +159,7 @@ type Dir struct {
 	ModUser string // name of the last user that modified the file
 }
 
-type Dispatcher func (s *Server, b *bytes.Buffer, t MType) error
+type Dispatcher func(s *Server, b *bytes.Buffer, t MType) error
 
 // N.B. In all packets, the wire order is assumed to be the order in which you
 // put struct members.
@@ -250,7 +254,7 @@ type RstatPkt struct {
 
 type TwstatPkt struct {
 	OFID FID
-	B []byte
+	B    []DataCnt16
 }
 
 type RwstatPkt struct {
@@ -281,7 +285,7 @@ type RerrorPkt struct {
 }
 
 type DirPkt struct {
-     D Dir
+	D Dir
 }
 
 type RPCCall struct {
@@ -322,14 +326,14 @@ type Client struct {
 // For now it's extremely serial. But we will use a chan for replies to ensure that
 // we can go to a more concurrent one later.
 type Server struct {
-	NS NineServer
-	D Dispatcher
+	NS        NineServer
+	D         Dispatcher
 	Versioned bool
-	FromNet io.ReadCloser
-	ToNet   io.WriteCloser
-	Replies chan RPCReply
-	Trace   Tracer
-	Dead    bool
+	FromNet   io.ReadCloser
+	ToNet     io.WriteCloser
+	Replies   chan RPCReply
+	Trace     Tracer
+	Dead      bool
 }
 
 type NineServer interface {
@@ -346,6 +350,7 @@ type NineServer interface {
 	Rwrite(FID, Offset, []byte) (Count, error)
 	Rflush(FID, FID) error
 }
+
 var (
 	RPCNames = map[MType]string{
 		Tversion: "Tversion",
@@ -396,7 +401,6 @@ func (c *Client) GetTag() Tag {
 func (c *Client) GetFID() FID {
 	return FID(atomic.AddUint64(&c.FID, 1))
 }
-
 
 func (c *Client) readNetPackets() {
 	if c.FromNet == nil {
@@ -481,12 +485,12 @@ func (c *Client) IO() {
 		if t < 1 {
 			panic(fmt.Sprintf("tag %d < 1", t))
 		}
-		if int(t-1) >= len(c.RPC)  {
+		if int(t-1) >= len(c.RPC) {
 			panic(fmt.Sprintf("tag %d >= len(c.RPC) %d", t, len(c.RPC)))
 		}
-			c.Trace("RPC %v ", c.RPC[t-1])
+		c.Trace("RPC %v ", c.RPC[t-1])
 		rrr := c.RPC[t-1]
-			c.Trace("rrr %v ", rrr)
+		c.Trace("rrr %v ", rrr)
 		rrr.Reply <- r.b
 		c.Tags <- t
 	}
@@ -495,7 +499,7 @@ func (c *Client) IO() {
 func (c *Client) String() string {
 	z := map[bool]string{false: "Alive", true: "Dead"}
 	return fmt.Sprintf("%v tags available, Msize %v, %v FromNet %v ToNet %v", len(c.Tags), c.Msize, z[c.Dead],
-				c.FromNet, c.ToNet)
+		c.FromNet, c.ToNet)
 }
 
 func (s *Server) String() string {

@@ -24,6 +24,7 @@ func NewServer(ns rpc.NineServer, opts ...rpc.ServerOpt) (*rpc.Server, error) {
 	}
 	return s, nil
 }
+
 // Dispatch dispatches request to different functions.
 // It's also the the first place we try to establish server semantics.
 // We could do this with interface assertions and such a la rsc/fuse
@@ -72,4 +73,3 @@ func Dispatch(s *rpc.Server, b *bytes.Buffer, t rpc.MType) error {
 	rpc.ServerError(b, fmt.Sprintf("Dispatch: %v not supported", rpc.RPCNames[t]))
 	return nil
 }
-

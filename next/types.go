@@ -18,21 +18,20 @@ import (
 type File struct {
 }
 
-
 /*
 // A FileOp is a function to call, an abort channel, and a reply channel
 type FileOp struct {
 	f func() error
 	abort chan abort
-	reply chan 
+	reply chan
 }
- */
+*/
 
 // A service is a closure which returns an error or nil.
 // It writes its result down the provided channel.
 // It looks for flushes on the flushchan before doing its
 // function, and will respond to all flushes while any are pending.
-type Service func (func() error, chan rpc.FID)
+type Service func(func() error, chan rpc.FID)
 
 // Server maintains file system server state. This is inclusive of RPC
 // server state plus more. In our case when we walk to a fid we kick
