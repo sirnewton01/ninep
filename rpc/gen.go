@@ -308,8 +308,16 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 			e.inBWrite = false
 		}
 		e.MCode.WriteString(fmt.Sprintf("\tb.Write(%v)\n", n))
+	case "[]rpc.DataCnt16":
+		var u uint16
+		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
+		if e.inBWrite {
+			e.MCode.WriteString("\t})\n")
+			e.inBWrite = false
+		}
+		e.MCode.WriteString(fmt.Sprintf("\tb.Write(%v)\n", n))
 	default:
-		log.Printf("genEncodeSlice: Can't handle slice of %T", v)
+		log.Printf("genEncodeSlice: Can't handle slice of %s", t)
 	}
 	return nil
 }
@@ -338,8 +346,13 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 		emitDecodeInt(u, "l", 4, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = b.Bytes()[:l]\n", n))
 		e.UCode.WriteString("\t_ = b.Next(int(l))\n")
+	case "[]rpc.DataCnt16":
+		var u uint64
+		emitDecodeInt(u, "l", 2, e)
+		e.UCode.WriteString(fmt.Sprintf("\t%v = b.Bytes()[:l]\n", n))
+		e.UCode.WriteString("\t_ = b.Next(int(l))\n")
 	default:
-		log.Printf("genEncodeSlice: Can't handle slice of %v", t)
+		log.Printf("genDecodeSlice: Can't handle slice of %v", t)
 	}
 	return nil
 }

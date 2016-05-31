@@ -125,6 +125,7 @@ type (
 	Perm       uint32
 	Offset     uint64
 	Data       []byte
+	DataCnt16  byte // []byte with a 16-bit count.
 )
 
 // Error represents a 9P2000 error
@@ -244,7 +245,7 @@ type TstatPkt struct {
 }
 
 type RstatPkt struct {
-	B bytes.Buffer
+	B []DataCnt16
 }
 
 type TwstatPkt struct {
