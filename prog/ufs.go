@@ -16,7 +16,7 @@ var (
 )
 
 func main() {
-
+	flag.Parse()
 	l, err := net.Listen(*ntype, *naddr)
 	if err != nil {
 		log.Fatalf("Listen failed: %v", err)
