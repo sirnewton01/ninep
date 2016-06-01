@@ -15,6 +15,10 @@ import (
 	"github.com/rminnich/ninep/rpc"
 )
 
+var (
+	removedFID2 bool
+)
+
 func print(f string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, f+"\n", args...)
 }
@@ -251,6 +255,9 @@ func (e *echo) Rclunk(f rpc.FID) error {
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
+		if removedFID2 {
+			return fmt.Errorf("Clunk: bad rpc.FID %v", f)
+		}
 		return nil
 	}
 	//fmt.Printf("clunk(%v)\n", f)
@@ -278,6 +285,7 @@ func (e *echo) Rremove(f rpc.FID) error {
 	switch int(f) {
 	case 2:
 		// Make it fancier, later.
+		removedFID2 = true
 		return nil
 	}
 	//fmt.Printf("remove(%v)\n", f)
@@ -453,6 +461,9 @@ func TestTMessages(t *testing.T) {
 	}
 	if err := c.CallTremove(rpc.FID(2)); err != nil {
 		t.Fatalf("CallTremove: want nil, got %v", err)
+	}
+	if err := c.CallTclunk(rpc.FID(2)); err == nil {
+		t.Fatalf("Callclunk on removed file: want err, got nil")
 	}
 	if err := c.CallTremove(rpc.FID(1)); err == nil {
 		t.Fatalf("CallTremove: want err, got nil")
