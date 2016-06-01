@@ -116,7 +116,8 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 		if ok {
 			return nil, fmt.Errorf("FID in use: clone walk, fid %d newfid %d", fid, newfid)
 		}
-		e.Files[newfid] = f
+		nf := *f
+		e.Files[newfid] = &nf
 		return []rpc.QID{}, nil
 	}
 	p := f.fullName
