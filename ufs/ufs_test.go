@@ -106,8 +106,11 @@ func TestMount(t *testing.T) {
 
 	t.Logf("Attach is %v", a)
 	w, err := c.CallTwalk(0, 1, []string{"hi", "there"})
-	if err == nil {
-		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want err, got QIDS %v", w)
+	if err != nil {
+		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want nil, got %v", err)
+	}
+	if len(w) > 0 {
+		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want 0 QIDs, got %v", w)
 	}
 	t.Logf("Walk is %v", w)
 	ro := strings.Split(path.Join(tmpdir, "ro"), "/")
@@ -231,7 +234,8 @@ func TestMount(t *testing.T) {
 	for iter < 10 {
 		iter++
 		b, err = c.CallTread(2, o, 256)
-		if fmt.Sprintf("%v", err) == "EOF" {
+		// EOF is indicated by a zero length read, not an actual error
+		if len(b) == 0 {
 			break
 		}
 		if err != nil {

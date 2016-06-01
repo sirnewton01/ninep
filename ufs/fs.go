@@ -122,19 +122,14 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	p := f.fullName
 	q := make([]rpc.QID, len(paths))
 
-	// optional: path.Join(p, paths[i]...) and see if the endpoint exists and return if not.
-	// It can save a little time. Maybe later.
-	for i := range paths {
+	var i int
+	for i = range paths {
 		p = path.Join(p, paths[i])
 		st, err := os.Lstat(p)
 		if err != nil {
-			return nil, fmt.Errorf("ENOENT")
+			return q[:i], nil
 		}
 		q[i] = fileInfoToQID(st)
-	}
-	st, err := os.Lstat(p)
-	if err != nil {
-		return nil, fmt.Errorf("Walk succeeded but stat failed")
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -144,7 +139,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 			return nil, fmt.Errorf("FID in use: walk to %v, fid %v, newfid %v", paths, fid, newfid)
 		}
 	}
-	e.Files[newfid] = &File{fullName: p, QID: fileInfoToQID(st)}
+	e.Files[newfid] = &File{fullName: p, QID: q[i]}
 	return q, nil
 }
 
