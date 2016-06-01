@@ -200,13 +200,8 @@ func (e FileServer) Rcreate(fid rpc.FID, name string, perm rpc.Perm, mode rpc.Mo
 	return q, 8000, err
 }
 func (e FileServer) Rclunk(fid rpc.FID) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if _, ok := e.Files[fid]; !ok {
-		return fmt.Errorf("Bad FID")
-	}
-	delete(e.Files, fid)
-	return nil
+	_, err := e.clunk(fid)
+	return err
 }
 
 func (e FileServer) Rstat(fid rpc.FID) ([]byte, error) {
@@ -318,10 +313,21 @@ func (e FileServer) Rwstat(fid rpc.FID, b []byte) error {
 	return nil
 }
 
+func (e FileServer) clunk(fid rpc.FID) (*File, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	f, ok := e.Files[fid]
+	if !ok {
+		return nil, fmt.Errorf("Bad FID")
+	}
+	delete(e.Files, fid)
+	return f, nil
+}
+
 // Rremove removes the file. The question of whether the file continues to be accessible
 // is system dependent.
 func (e FileServer) Rremove(fid rpc.FID) error {
-	f, err := e.getFile(fid)
+	f, err := e.clunk(fid)
 	if err != nil {
 		return err
 	}
@@ -368,7 +374,7 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 	// through a zero byte read (not Unix, of course).
 	b := make([]byte, c)
 	n, err := f.File.ReadAt(b, int64(o))
-	if err != nil && err != io.EOF{
+	if err != nil && err != io.EOF {
 		return nil, err
 	}
 	return b[:n], nil

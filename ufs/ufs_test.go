@@ -300,6 +300,9 @@ func TestMount(t *testing.T) {
 	if err = c.CallTremove(3); err != nil {
 		t.Fatalf("CallTremove(3) failed: want nil, got %v", err)
 	}
+	if err = c.CallTclunk(3); err == nil {
+		t.Errorf("CallTclunk(3) failed: want err, got nil")
+	}
 	if _, err := os.Stat(xxx); err == nil {
 		t.Fatalf("After remove(%v); stat returns nil, not err", xxx)
 	}
