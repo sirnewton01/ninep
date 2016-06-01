@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -116,7 +117,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 			return nil, fmt.Errorf("FID in use: clone walk, fid %d newfid %d", fid, newfid)
 		}
 		e.Files[newfid] = f
-		return []rpc.QID{f.QID}, nil
+		return []rpc.QID{}, nil
 	}
 	p := f.fullName
 	q := make([]rpc.QID, len(paths))
@@ -348,6 +349,9 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 		}
 
 		st, err := f.File.Readdir(1)
+		if err == io.EOF {
+			return nil, nil
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +373,7 @@ func (e FileServer) Rread(fid rpc.FID, o rpc.Offset, c rpc.Count) ([]byte, error
 	// through a zero byte read (not Unix, of course).
 	b := make([]byte, c)
 	n, err := f.File.ReadAt(b, int64(o))
-	if err != nil {
+	if err != nil && err != io.EOF{
 		return nil, err
 	}
 	return b[:n], nil
