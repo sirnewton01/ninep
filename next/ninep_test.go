@@ -230,13 +230,13 @@ func (e *echo) Rflush(f rpc.FID, t rpc.FID) error {
 func (e *echo) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QID, error) {
 	//fmt.Printf("walk(%d, %d, %d, %v\n", fid, newfid, len(paths), paths)
 	if len(paths) > 1 {
-		return nil, fmt.Errorf("%v: No such file or directory", paths)
+		return nil, nil
 	}
 	switch paths[0] {
 	case "null":
 		return []rpc.QID{rpc.QID{Type: 0, Version: 0, Path: 0xaa55}}, nil
 	}
-	return nil, fmt.Errorf("%v: No such file or directory", paths)
+	return nil, nil
 }
 
 func (e *echo) Ropen(fid rpc.FID, mode rpc.Mode) (rpc.QID, rpc.MaxSize, error) {
@@ -408,14 +408,22 @@ func TestTMessages(t *testing.T) {
 	}
 	t.Logf("Attach is %v", a)
 	w, err := c.CallTwalk(0, 1, []string{"hi", "there"})
-	if err == nil {
-		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want err, got rpc.QIDS %v", w)
+	// There should never be an error. The indication of a failed walk is that
+	// the number of QIDS does not match.
+	if err != nil {
+		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want nil, got %v", err)
+	}
+	if len(w) != 0 {
+		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want 0 QIDS, got  back %d", len(w))
 	}
 	t.Logf("Walk is %v", w)
 
 	w, err = c.CallTwalk(0, 1, []string{"null"})
 	if err != nil {
-		t.Fatalf("CallTwalk(0,1,\"null\"): want nil, got err %v", err)
+		t.Errorf("CallTwalk(0,1,\"null\"): want nil, got err %v", err)
+	}
+	if len(w) != 1 {
+		t.Errorf("CallTwalk(0,1,\"null\"): want 1 QIDs, got back %d", len(w))
 	}
 	t.Logf("Walk is %v", w)
 
