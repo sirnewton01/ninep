@@ -113,7 +113,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 		defer e.mu.Unlock()
 		_, ok := e.Files[newfid]
 		if ok {
-			return nil, fmt.Errorf("FID in use")
+			return nil, fmt.Errorf("FID in use: clone walk, fid %d newfid %d", fid, newfid)
 		}
 		e.Files[newfid] = f
 		return []rpc.QID{f.QID}, nil
@@ -140,7 +140,7 @@ func (e FileServer) Rwalk(fid rpc.FID, newfid rpc.FID, paths []string) ([]rpc.QI
 	// this is quite unlikely, which is why we don't bother checking for it first.
 	if fid != newfid {
 		if _, ok := e.Files[newfid]; ok {
-			return nil, fmt.Errorf("FID in use")
+			return nil, fmt.Errorf("FID in use: walk to %v, fid %v, newfid %v", paths, fid, newfid)
 		}
 	}
 	e.Files[newfid] = &File{fullName: p, QID: fileInfoToQID(st)}
