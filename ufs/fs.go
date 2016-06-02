@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -322,6 +323,13 @@ func (e FileServer) clunk(fid rpc.FID) (*File, error) {
 		return nil, fmt.Errorf("Bad FID")
 	}
 	delete(e.Files, fid)
+	// What do we do if we can't close it?
+	// All I can think of is to log it.
+	if f.File != nil {
+		if err := f.File.Close(); err != nil {
+			log.Printf("Close of %v failed: %v", f.fullName, err)
+		}
+	}
 	return f, nil
 }
 
