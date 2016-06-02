@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package next
+package protocol
 
 import (
-	"github.com/rminnich/ninep/rpc"
+	"github.com/rminnich/ninep/stub"
 )
 
 // A File is defined by a QID. File Servers never see a FID.
@@ -31,13 +31,13 @@ type FileOp struct {
 // It writes its result down the provided channel.
 // It looks for flushes on the flushchan before doing its
 // function, and will respond to all flushes while any are pending.
-type Service func(func() error, chan rpc.FID)
+type Service func(func() error, chan stub.FID)
 
 // Server maintains file system server state. This is inclusive of RPC
 // server state plus more. In our case when we walk to a fid we kick
 // off a goroutine to manage it. As a result we need a map of Tag to FID
 // so we know what to do about Tflush.
 type FileServer struct {
-	rpc.Server
+	stub.Server
 	Versioned bool
 }

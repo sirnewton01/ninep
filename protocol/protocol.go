@@ -1,20 +1,17 @@
-// Package next implements the next version of ninep. We use generators, goroutines, and channels,
-// and build on what we've learned
+// Package protocol implements the 9p protocol using the stubs.
 
-//go:generate go run gen.go -output enc_helpers.go
-
-package next
+package protocol
 
 import (
 	"bytes"
 	"fmt"
 
-	"github.com/rminnich/ninep/rpc"
+	"github.com/rminnich/ninep/stub"
 )
 
-func NewServer(ns rpc.NineServer, opts ...rpc.ServerOpt) (*rpc.Server, error) {
-	s := &rpc.Server{}
-	s.Replies = make(chan rpc.RPCReply, rpc.NumTags)
+func NewServer(ns stub.NineServer, opts ...stub.ServerOpt) (*stub.Server, error) {
+	s := &stub.Server{}
+	s.Replies = make(chan stub.RPCReply, stub.NumTags)
 	s.NS = ns
 	s.D = Dispatch
 	for _, o := range opts {
@@ -30,46 +27,46 @@ func NewServer(ns rpc.NineServer, opts ...rpc.ServerOpt) (*rpc.Server, error) {
 // We could do this with interface assertions and such a la rsc/fuse
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
-func Dispatch(s *rpc.Server, b *bytes.Buffer, t rpc.MType) error {
+func Dispatch(s *stub.Server, b *bytes.Buffer, t stub.MType) error {
 	switch t {
-	case rpc.Tversion:
+	case stub.Tversion:
 		s.Versioned = true
 	default:
 		if !s.Versioned {
-			m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", rpc.RPCNames[t])
+			m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", stub.RPCNames[t])
 			// Yuck. Provide helper.
 			d := b.Bytes()
-			rpc.MarshalRerrorPkt(b, rpc.Tag(d[0])|rpc.Tag(d[1]<<8), m)
-			return fmt.Errorf("Dispatch: %v not allowed before Tversion", rpc.RPCNames[t])
+			stub.MarshalRerrorPkt(b, stub.Tag(d[0])|stub.Tag(d[1]<<8), m)
+			return fmt.Errorf("Dispatch: %v not allowed before Tversion", stub.RPCNames[t])
 		}
 	}
 	switch t {
-	case rpc.Tversion:
+	case stub.Tversion:
 		return s.SrvRversion(b)
-	case rpc.Tattach:
+	case stub.Tattach:
 		return s.SrvRattach(b)
-	case rpc.Tflush:
+	case stub.Tflush:
 		return s.SrvRflush(b)
-	case rpc.Twalk:
+	case stub.Twalk:
 		return s.SrvRwalk(b)
-	case rpc.Topen:
+	case stub.Topen:
 		return s.SrvRopen(b)
-	case rpc.Tcreate:
+	case stub.Tcreate:
 		return s.SrvRcreate(b)
-	case rpc.Tclunk:
+	case stub.Tclunk:
 		return s.SrvRclunk(b)
-	case rpc.Tstat:
+	case stub.Tstat:
 		return s.SrvRstat(b)
-	case rpc.Twstat:
+	case stub.Twstat:
 		return s.SrvRwstat(b)
-	case rpc.Tremove:
+	case stub.Tremove:
 		return s.SrvRremove(b)
-	case rpc.Tread:
+	case stub.Tread:
 		return s.SrvRread(b)
-	case rpc.Twrite:
+	case stub.Twrite:
 		return s.SrvRwrite(b)
 	}
 	// This has been tested by removing Attach from the switch.
-	rpc.ServerError(b, fmt.Sprintf("Dispatch: %v not supported", rpc.RPCNames[t]))
+	stub.ServerError(b, fmt.Sprintf("Dispatch: %v not supported", stub.RPCNames[t]))
 	return nil
 }
