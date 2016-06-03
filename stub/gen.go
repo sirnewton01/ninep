@@ -120,8 +120,8 @@ return
 	usfunc = template.Must(template.New("us").Parse(`func Unmarshal{{.UFunc}} (b *bytes.Buffer) ({{.URet}} err error) {
 var u [8]uint8
 var l uint64
-{{.UCode}}
 _ = b.Next(2) // eat the length too
+{{.UCode}}
 if b.Len() > 0 {
 err = fmt.Errorf("Packet too long: %d bytes left over after decode", b.Len())
 }
