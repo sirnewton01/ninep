@@ -86,13 +86,9 @@ func (e FileServer) Rattach(fid stub.FID, afid stub.FID, uname string, aname str
 		return stub.QID{}, fmt.Errorf("We don't do auth attach")
 	}
 	// There should be no .. or other such junk in the Aname. Clean it up anyway.
-	fmt.Fprintf(os.Stderr, "-------------------------- %v ---------------", []byte(aname))
 	aname = path.Join("/", aname)
 	aname = path.Join(*root, aname)
-	fmt.Fprintf(os.Stderr, "=================== stat %v =====================", aname)
-	_, _ = os.Stat("FUCK")
 	st, err := os.Stat(aname)
-	fmt.Fprintf(os.Stderr, "=================== %v %v =====================", st, err)
 	if err != nil {
 		return stub.QID{}, err
 	}
@@ -225,7 +221,6 @@ func (e FileServer) Rstat(fid stub.FID) ([]byte, error) {
 	}
 	var b bytes.Buffer
 	stub.Marshaldir(&b, *d)
-	fmt.Printf("Returning %d for stat\n", b.Len())
 	return b.Bytes(), nil
 }
 func (e FileServer) Rwstat(fid stub.FID, b []byte) error {
@@ -377,7 +372,7 @@ func (e FileServer) Rread(fid stub.FID, o stub.Offset, c stub.Count) ([]byte, er
 				f.oflow = b.Bytes()[pos:]
 				return b.Bytes()[:pos], nil
 			}
-			pos = b.Len()
+			pos += b.Len()
 			st, err := f.File.Readdir(1)
 			if err == io.EOF {
 				return b.Bytes(), nil
@@ -391,7 +386,11 @@ func (e FileServer) Rread(fid stub.FID, o stub.Offset, c stub.Count) ([]byte, er
 				return nil, err
 			}
 			stub.Marshaldir(b, *d9p)
+			// We're not quite doing the array right.
+			// What does work is returning one thing so, for now, do that.
+			return b.Bytes(), nil
 		}
+		return b.Bytes(), nil
 	}
 
 	// N.B. even if they ask for 0 bytes on some file systems it is important to pass

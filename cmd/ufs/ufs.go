@@ -30,7 +30,7 @@ func main() {
 
 		_, err = ufs.NewUFS(func(s *stub.Server) error {
 			s.FromNet, s.ToNet = c, c
-			s.Trace = log.Printf
+			s.Trace = nil  // log.Printf
 			return nil
 		})
 		if err != nil {
