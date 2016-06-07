@@ -13,7 +13,13 @@ import (
 	"log"
 	"runtime"
 	"sync/atomic"
+	"flag"
+	"os"
+	"io/ioutil"
+	"runtime/pprof"
 )
+
+var serverprofile = flag.String("serverprofile", "", "This is for specifying the prefix of the output file for the profile")
 
 // 9P2000 message types
 const (
@@ -336,6 +342,8 @@ type Server struct {
 	Replies   chan RPCReply
 	Trace     Tracer
 	Dead      bool
+	
+	fprofile *os.File
 }
 
 type NineServer interface {
@@ -529,6 +537,21 @@ func NewClient(opts ...ClientOpt) (*Client, error) {
 	return c, nil
 }
 
+func (s *Server) beginSrvProfile() {
+	var err error
+	s.fprofile, err = ioutil.TempFile("", *serverprofile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(s.fprofile)
+}
+
+func (s *Server) endSrvProfile() {
+	pprof.StopCPUProfile()
+	s.fprofile.Close()
+}
+	
+
 func (s *Server) readNetPackets() {
 	if s.FromNet == nil {
 		s.Dead = true
@@ -539,12 +562,15 @@ func (s *Server) readNetPackets() {
 	if s.Trace != nil {
 		s.Trace("Starting readNetPackets")
 	}
+	if *serverprofile != "" {
+		s.beginSrvProfile()
+	}
 	for !s.Dead {
 		l := make([]byte, 7)
 		if n, err := s.FromNet.Read(l); err != nil || n < 7 {
 			log.Printf("readNetPackets: short read: %v", err)
 			s.Dead = true
-			return
+			break
 		}
 		sz := int64(l[0]) + int64(l[1])<<8 + int64(l[2])<<16 + int64(l[3])<<24
 		t := MType(l[4])
@@ -553,7 +579,7 @@ func (s *Server) readNetPackets() {
 		if _, err := io.Copy(b, r); err != nil {
 			log.Printf("readNetPackets: short read: %v", err)
 			s.Dead = true
-			return
+			break
 		}
 		if s.Trace != nil {
 			s.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
@@ -570,11 +596,14 @@ func (s *Server) readNetPackets() {
 		if err != nil {
 			log.Printf("readNetPackets: write error: %v", err)
 			s.Dead = true
-			return
+			break
 		}
 		if s.Trace != nil {
 			s.Trace("Returned %v amt %v", b, amt)
 		}
+	}
+	if *serverprofile != "" {
+		s.endSrvProfile()
 	}
 
 }
