@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rminnich/ninep/protocol"
-	"github.com/rminnich/ninep/stub"
+	"github.com/Harvey-OS/ninep/protocol"
+	"github.com/Harvey-OS/ninep/stub"
 )
 
 const (
