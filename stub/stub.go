@@ -8,15 +8,16 @@ package stub
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
-	"log"
-	"runtime"
-	"sync/atomic"
-	"flag"
-	"os"
 	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
 	"runtime/pprof"
+	"sync/atomic"
 )
 
 var serverprofile = flag.String("serverprofile", "", "This is for specifying the prefix of the output file for the profile")
@@ -342,7 +343,7 @@ type Server struct {
 	Replies   chan RPCReply
 	Trace     Tracer
 	Dead      bool
-	
+
 	fprofile *os.File
 }
 
@@ -539,7 +540,7 @@ func NewClient(opts ...ClientOpt) (*Client, error) {
 
 func (s *Server) beginSrvProfile() {
 	var err error
-	s.fprofile, err = ioutil.TempFile("", *serverprofile)
+	s.fprofile, err = ioutil.TempFile(filepath.Dir(*serverprofile), filepath.Base(*serverprofile))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -549,8 +550,8 @@ func (s *Server) beginSrvProfile() {
 func (s *Server) endSrvProfile() {
 	pprof.StopCPUProfile()
 	s.fprofile.Close()
+	log.Println("writing cpuprofile to", s.fprofile.Name())
 }
-	
 
 func (s *Server) readNetPackets() {
 	if s.FromNet == nil {
