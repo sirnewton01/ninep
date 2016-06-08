@@ -565,7 +565,7 @@ func (s *Server) readNetPackets() {
 	}
 	if *serverprofile != "" {
 		s.beginSrvProfile()
-        defer s.endSrvProfile()
+		defer s.endSrvProfile()
 	}
 	for !s.Dead {
 		l := make([]byte, 7)
@@ -598,7 +598,7 @@ func (s *Server) readNetPackets() {
 		if err != nil {
 			log.Printf("readNetPackets: write error: %v", err)
 			s.Dead = true
-		    return	
+			return
 		}
 		if s.Trace != nil {
 			s.Trace("Returned %v amt %v", b, amt)
