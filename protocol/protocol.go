@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/rminnich/ninep/stub"
+	"github.com/Harvey-OS/ninep/stub"
 )
 
 func NewServer(ns stub.NineServer, opts ...stub.ServerOpt) (*stub.Server, error) {

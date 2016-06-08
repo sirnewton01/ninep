@@ -10,7 +10,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/rminnich/ninep/stub"
+	"github.com/Harvey-OS/ninep/stub"
 )
 
 func OModeToUnixFlags(mode stub.Mode) int {

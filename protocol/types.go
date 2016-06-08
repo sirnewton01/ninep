@@ -5,7 +5,7 @@
 package protocol
 
 import (
-	"github.com/rminnich/ninep/stub"
+	"github.com/Harvey-OS/ninep/stub"
 )
 
 // A File is defined by a QID. File Servers never see a FID.
