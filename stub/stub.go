@@ -565,13 +565,14 @@ func (s *Server) readNetPackets() {
 	}
 	if *serverprofile != "" {
 		s.beginSrvProfile()
+        defer s.endSrvProfile()
 	}
 	for !s.Dead {
 		l := make([]byte, 7)
 		if n, err := s.FromNet.Read(l); err != nil || n < 7 {
 			log.Printf("readNetPackets: short read: %v", err)
 			s.Dead = true
-			break
+			return
 		}
 		sz := int64(l[0]) + int64(l[1])<<8 + int64(l[2])<<16 + int64(l[3])<<24
 		t := MType(l[4])
@@ -580,7 +581,7 @@ func (s *Server) readNetPackets() {
 		if _, err := io.Copy(b, r); err != nil {
 			log.Printf("readNetPackets: short read: %v", err)
 			s.Dead = true
-			break
+			return
 		}
 		if s.Trace != nil {
 			s.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
@@ -597,14 +598,11 @@ func (s *Server) readNetPackets() {
 		if err != nil {
 			log.Printf("readNetPackets: write error: %v", err)
 			s.Dead = true
-			break
+		    return	
 		}
 		if s.Trace != nil {
 			s.Trace("Returned %v amt %v", b, amt)
 		}
-	}
-	if *serverprofile != "" {
-		s.endSrvProfile()
 	}
 
 }
