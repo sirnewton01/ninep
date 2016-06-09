@@ -8,12 +8,19 @@ package stub
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"sync/atomic"
 )
+
+var serverprofile = flag.String("serverprofile", "", "This is for specifying the prefix of the output file for the profile")
 
 // 9P2000 message types
 const (
@@ -336,6 +343,8 @@ type Server struct {
 	Replies   chan RPCReply
 	Trace     Tracer
 	Dead      bool
+
+	fprofile *os.File
 }
 
 type NineServer interface {
@@ -529,6 +538,21 @@ func NewClient(opts ...ClientOpt) (*Client, error) {
 	return c, nil
 }
 
+func (s *Server) beginSrvProfile() {
+	var err error
+	s.fprofile, err = ioutil.TempFile(filepath.Dir(*serverprofile), filepath.Base(*serverprofile))
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(s.fprofile)
+}
+
+func (s *Server) endSrvProfile() {
+	pprof.StopCPUProfile()
+	s.fprofile.Close()
+	log.Println("writing cpuprofile to", s.fprofile.Name())
+}
+
 func (s *Server) readNetPackets() {
 	if s.FromNet == nil {
 		s.Dead = true
@@ -538,6 +562,10 @@ func (s *Server) readNetPackets() {
 	defer s.ToNet.Close()
 	if s.Trace != nil {
 		s.Trace("Starting readNetPackets")
+	}
+	if *serverprofile != "" {
+		s.beginSrvProfile()
+		defer s.endSrvProfile()
 	}
 	for !s.Dead {
 		l := make([]byte, 7)
