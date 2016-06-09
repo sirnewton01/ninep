@@ -67,7 +67,7 @@ func fileInfoToQID(d os.FileInfo) stub.QID {
 	// on systems with inodes, use it.
 	if sysif != nil {
 		stat := sysif.(*syscall.Stat_t)
-		qid.Path = stat.Ino
+		qid.Path = uint64(stat.Ino)
 	} else {
 		qid.Path = uint64(d.ModTime().UnixNano())
 	}
