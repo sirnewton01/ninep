@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/Harvey-OS/ninep/stub"
+	"github.com/Harvey-OS/ninep/protocol"
 	"github.com/Harvey-OS/ninep/filesystem"
 )
 
@@ -28,7 +28,7 @@ func main() {
 			log.Printf("Accept: %v", err)
 		}
 
-		_, err = ufs.NewUFS(func(s *stub.Server) error {
+		_, err = ufs.NewUFS(func(s *protocol.Server) error {
 			s.FromNet, s.ToNet = c, c
 			s.Trace = nil  // log.Printf
 			return nil

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Harvey-OS/ninep/stub"
+    "github.com/Harvey-OS/ninep/protocol"
 )
 
 func print(f string, args ...interface{}) {
@@ -66,11 +66,11 @@ func TestMount(t *testing.T) {
 	sr, cw := io.Pipe()
 	cr, sw := io.Pipe()
 
-	c, err := stub.NewClient(func(c *stub.Client) error {
+	c, err := protocol.NewClient(func(c *protocol.Client) error {
 		c.FromNet, c.ToNet = cr, cw
 		return nil
 	},
-		func(c *stub.Client) error {
+		func(c *protocol.Client) error {
 			c.Msize = 8192
 			c.Trace = print //t.Logf
 			return nil
@@ -80,7 +80,7 @@ func TestMount(t *testing.T) {
 	}
 	t.Logf("Client is %v", c.String())
 
-	n, err := NewUFS(func(s *stub.Server) error {
+	n, err := NewUFS(func(s *protocol.Server) error {
 		s.FromNet, s.ToNet = sr, sw
 		s.Trace = print //t.Logf
 		return nil
@@ -99,7 +99,7 @@ func TestMount(t *testing.T) {
 
 	t.Logf("Server is %v", n.String())
 
-	a, err := c.CallTattach(0, stub.NOFID, "/", "")
+	a, err := c.CallTattach(0, protocol.NOFID, "/", "")
 	if err != nil {
 		t.Fatalf("CallTattach: want nil, got %v", err)
 	}
@@ -121,17 +121,17 @@ func TestMount(t *testing.T) {
 	}
 	t.Logf("Walk is %v", w)
 
-	of, _, err := c.CallTopen(22, stub.OREAD)
+	of, _, err := c.CallTopen(22, protocol.OREAD)
 	if err == nil {
-		t.Fatalf("CallTopen(22, stub.OREAD): want err, got nil")
+		t.Fatalf("CallTopen(22, protocol.OREAD): want err, got nil")
 	}
-	of, _, err = c.CallTopen(1, stub.OWRITE)
+	of, _, err = c.CallTopen(1, protocol.OWRITE)
 	if err == nil {
-		t.Fatalf("CallTopen(0, stub.OWRITE): want err, got nil")
+		t.Fatalf("CallTopen(0, protocol.OWRITE): want err, got nil")
 	}
-	of, _, err = c.CallTopen(1, stub.OREAD)
+	of, _, err = c.CallTopen(1, protocol.OREAD)
 	if err != nil {
-		t.Fatalf("CallTopen(1, stub.OREAD): want nil, got %v", nil)
+		t.Fatalf("CallTopen(1, protocol.OREAD): want nil, got %v", nil)
 	}
 	t.Logf("Open is %v", of)
 
@@ -186,9 +186,9 @@ func TestMount(t *testing.T) {
 	}
 	t.Logf("Walk is %v", w)
 
-	of, _, err = c.CallTopen(1, stub.OREAD)
+	of, _, err = c.CallTopen(1, protocol.OREAD)
 	if err != nil {
-		t.Fatalf("CallTopen(1, stub.OREAD): want nil, got %v", nil)
+		t.Fatalf("CallTopen(1, protocol.OREAD): want nil, got %v", nil)
 	}
 	if err := c.CallTclunk(1); err != nil {
 		t.Fatalf("CallTclunk(1): want nil, got %v", err)
@@ -199,9 +199,9 @@ func TestMount(t *testing.T) {
 	}
 	t.Logf("Walk is %v", w)
 
-	of, _, err = c.CallTopen(1, stub.OWRITE)
+	of, _, err = c.CallTopen(1, protocol.OWRITE)
 	if err != nil {
-		t.Fatalf("CallTopen(0, stub.OWRITE): want nil, got %v", err)
+		t.Fatalf("CallTopen(0, protocol.OWRITE): want nil, got %v", err)
 	}
 	t.Logf("open OWRITE of is %v", of)
 	if _, err = c.CallTwrite(1, 1, []byte("there")); err != nil {
@@ -217,19 +217,19 @@ func TestMount(t *testing.T) {
 		t.Fatalf("CallTwalk(0,2,strings.Split(tmpdir, \"/\")): want nil, got %v", err)
 	}
 	t.Logf("Walk is %v", w)
-	of, _, err = c.CallTopen(2, stub.OWRITE)
+	of, _, err = c.CallTopen(2, protocol.OWRITE)
 	if err == nil {
-		t.Fatalf("CallTopen(2, stub.OWRITE) on /: want err, got nil")
+		t.Fatalf("CallTopen(2, protocol.OWRITE) on /: want err, got nil")
 	}
-	of, _, err = c.CallTopen(2, stub.ORDWR)
+	of, _, err = c.CallTopen(2, protocol.ORDWR)
 	if err == nil {
-		t.Fatalf("CallTopen(2, stub.ORDWR) on /: want err, got nil")
+		t.Fatalf("CallTopen(2, protocol.ORDWR) on /: want err, got nil")
 	}
-	of, _, err = c.CallTopen(2, stub.OREAD)
+	of, _, err = c.CallTopen(2, protocol.OREAD)
 	if err != nil {
-		t.Fatalf("CallTopen(1, stub.OREAD): want nil, got %v", nil)
+		t.Fatalf("CallTopen(1, protocol.OREAD): want nil, got %v", nil)
 	}
-	var o stub.Offset
+	var o protocol.Offset
 	var iter int
 	for iter < 10 {
 		iter++
@@ -242,12 +242,12 @@ func TestMount(t *testing.T) {
 			t.Fatalf("CallTread(2, 0, 256): want nil, got %v", err)
 		}
 
-		dent, err := stub.Unmarshaldir(bytes.NewBuffer(b))
+		dent, err := protocol.Unmarshaldir(bytes.NewBuffer(b))
 		if err != nil {
 			t.Errorf("Unmarshalldir: want nil, got %v", err)
 		}
 		t.Logf("dir read is %v", dent)
-		o += stub.Offset(len(b))
+		o += protocol.Offset(len(b))
 	}
 
 	if iter > 9 {
@@ -282,7 +282,7 @@ func TestMount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CallTwalk(0,4,%v): want nil, got %v", tmpdir, err)
 	}
-	of, _, err = c.CallTcreate(4, "yyy", stub.DMDIR|0777, 0)
+	of, _, err = c.CallTcreate(4, "yyy", protocol.DMDIR|0777, 0)
 	if err != nil {
 		t.Fatalf("CallTcreate(\"yyy\", 0777, 0): want nil, got %v", err)
 	}

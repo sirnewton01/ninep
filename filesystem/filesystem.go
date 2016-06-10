@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/Harvey-OS/ninep/protocol"
-	"github.com/Harvey-OS/ninep/stub"
 )
 
 const (
@@ -25,7 +24,7 @@ const (
 )
 
 type File struct {
-	stub.QID
+	protocol.QID
 	fullName string
 	File     *os.File
 	// We can't know how big a serialized dentry is until we serialize it.
@@ -39,8 +38,8 @@ type FileServer struct {
 	root      *File
 	rootPath  string
 	Versioned bool
-	Files     map[stub.FID]*File
-	IOunit    stub.MaxSize
+	Files     map[protocol.FID]*File
+	IOunit    protocol.MaxSize
 }
 
 var (
@@ -48,8 +47,8 @@ var (
 	root  = flag.String("root", "/", "Set the root for all attaches")
 )
 
-func stat(s string) (*stub.Dir, stub.QID, error) {
-	var q stub.QID
+func stat(s string) (*protocol.Dir, protocol.QID, error) {
+	var q protocol.QID
 	st, err := os.Lstat(s)
 	if err != nil {
 		return nil, q, fmt.Errorf("Enoent")
@@ -62,7 +61,7 @@ func stat(s string) (*stub.Dir, stub.QID, error) {
 	return d, q, nil
 }
 
-func (e FileServer) Rversion(msize stub.MaxSize, version string) (stub.MaxSize, string, error) {
+func (e FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
 	}
@@ -70,7 +69,7 @@ func (e FileServer) Rversion(msize stub.MaxSize, version string) (stub.MaxSize, 
 	return msize, version, nil
 }
 
-func (e FileServer) getFile(fid stub.FID) (*File, error) {
+func (e FileServer) getFile(fid protocol.FID) (*File, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
@@ -81,16 +80,16 @@ func (e FileServer) getFile(fid stub.FID) (*File, error) {
 	return f, nil
 }
 
-func (e FileServer) Rattach(fid stub.FID, afid stub.FID, uname string, aname string) (stub.QID, error) {
-	if afid != stub.NOFID {
-		return stub.QID{}, fmt.Errorf("We don't do auth attach")
+func (e FileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, aname string) (protocol.QID, error) {
+	if afid != protocol.NOFID {
+		return protocol.QID{}, fmt.Errorf("We don't do auth attach")
 	}
 	// There should be no .. or other such junk in the Aname. Clean it up anyway.
 	aname = path.Join("/", aname)
 	aname = path.Join(*root, aname)
 	st, err := os.Stat(aname)
 	if err != nil {
-		return stub.QID{}, err
+		return protocol.QID{}, err
 	}
 	r := &File{fullName: aname}
 	r.QID = fileInfoToQID(st)
@@ -99,11 +98,11 @@ func (e FileServer) Rattach(fid stub.FID, afid stub.FID, uname string, aname str
 	return r.QID, nil
 }
 
-func (e FileServer) Rflush(f stub.FID, t stub.FID) error {
+func (e FileServer) Rflush(f protocol.FID, t protocol.FID) error {
 	return nil
 }
 
-func (e FileServer) Rwalk(fid stub.FID, newfid stub.FID, paths []string) ([]stub.QID, error) {
+func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([]protocol.QID, error) {
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
@@ -119,10 +118,10 @@ func (e FileServer) Rwalk(fid stub.FID, newfid stub.FID, paths []string) ([]stub
 		}
 		nf := *f
 		e.Files[newfid] = &nf
-		return []stub.QID{}, nil
+		return []protocol.QID{}, nil
 	}
 	p := f.fullName
-	q := make([]stub.QID, len(paths))
+	q := make([]protocol.QID, len(paths))
 
 	var i int
 	for i = range paths {
@@ -145,41 +144,41 @@ func (e FileServer) Rwalk(fid stub.FID, newfid stub.FID, paths []string) ([]stub
 	return q, nil
 }
 
-func (e FileServer) Ropen(fid stub.FID, mode stub.Mode) (stub.QID, stub.MaxSize, error) {
+func (e FileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
 	if !ok {
-		return stub.QID{}, 0, fmt.Errorf("Bad FID")
+		return protocol.QID{}, 0, fmt.Errorf("Bad FID")
 	}
 
 	var err error
 	f.File, err = os.OpenFile(f.fullName, OModeToUnixFlags(mode), 0)
 	if err != nil {
-		return stub.QID{}, 0, err
+		return protocol.QID{}, 0, err
 	}
 
 	return f.QID, e.IOunit, nil
 }
-func (e FileServer) Rcreate(fid stub.FID, name string, perm stub.Perm, mode stub.Mode) (stub.QID, stub.MaxSize, error) {
+func (e FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
-		return stub.QID{}, 0, err
+		return protocol.QID{}, 0, err
 	}
 	if f.File != nil {
-		return stub.QID{}, 0, fmt.Errorf("FID already open")
+		return protocol.QID{}, 0, fmt.Errorf("FID already open")
 	}
 	n := path.Join(f.fullName, name)
-	if perm&stub.Perm(stub.DMDIR) != 0 {
+	if perm&protocol.Perm(protocol.DMDIR) != 0 {
 		p := os.FileMode(int(perm) & 0777)
 		err := os.Mkdir(n, p)
 		_, q, err := stat(n)
 		if err != nil {
-			return stub.QID{}, 0, err
+			return protocol.QID{}, 0, err
 		}
 		f.File, err = os.Open(n)
 		if err != nil {
-			return stub.QID{}, 0, err
+			return protocol.QID{}, 0, err
 		}
 		f.fullName = n
 		f.QID = q
@@ -190,23 +189,23 @@ func (e FileServer) Rcreate(fid stub.FID, name string, perm stub.Perm, mode stub
 	p := os.FileMode(perm) & 0777
 	of, err := os.OpenFile(n, m, p)
 	if err != nil {
-		return stub.QID{}, 0, err
+		return protocol.QID{}, 0, err
 	}
 	_, q, err := stat(n)
 	if err != nil {
-		return stub.QID{}, 0, err
+		return protocol.QID{}, 0, err
 	}
 	f.fullName = n
 	f.QID = q
 	f.File = of
 	return q, 8000, err
 }
-func (e FileServer) Rclunk(fid stub.FID) error {
+func (e FileServer) Rclunk(fid protocol.FID) error {
 	_, err := e.clunk(fid)
 	return err
 }
 
-func (e FileServer) Rstat(fid stub.FID) ([]byte, error) {
+func (e FileServer) Rstat(fid protocol.FID) ([]byte, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return []byte{}, err
@@ -220,16 +219,16 @@ func (e FileServer) Rstat(fid stub.FID) ([]byte, error) {
 		return []byte{}, nil
 	}
 	var b bytes.Buffer
-	stub.Marshaldir(&b, *d)
+	protocol.Marshaldir(&b, *d)
 	return b.Bytes(), nil
 }
-func (e FileServer) Rwstat(fid stub.FID, b []byte) error {
+func (e FileServer) Rwstat(fid protocol.FID, b []byte) error {
 	var changed bool
 	f, err := e.getFile(fid)
 	if err != nil {
 		return err
 	}
-	dir, err := stub.Unmarshaldir(bytes.NewBuffer(b))
+	dir, err := protocol.Unmarshaldir(bytes.NewBuffer(b))
 	if err != nil {
 		return err
 	}
@@ -314,7 +313,7 @@ func (e FileServer) Rwstat(fid stub.FID, b []byte) error {
 	return nil
 }
 
-func (e FileServer) clunk(fid stub.FID) (*File, error) {
+func (e FileServer) clunk(fid protocol.FID) (*File, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
@@ -334,7 +333,7 @@ func (e FileServer) clunk(fid stub.FID) (*File, error) {
 
 // Rremove removes the file. The question of whether the file continues to be accessible
 // is system dependent.
-func (e FileServer) Rremove(fid stub.FID) error {
+func (e FileServer) Rremove(fid protocol.FID) error {
 	f, err := e.clunk(fid)
 	if err != nil {
 		return err
@@ -342,7 +341,7 @@ func (e FileServer) Rremove(fid stub.FID) error {
 	return os.Remove(f.fullName)
 }
 
-func (e FileServer) Rread(fid stub.FID, o stub.Offset, c stub.Count) ([]byte, error) {
+func (e FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count) ([]byte, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return nil, err
@@ -350,7 +349,7 @@ func (e FileServer) Rread(fid stub.FID, o stub.Offset, c stub.Count) ([]byte, er
 	if f.File == nil {
 		return nil, fmt.Errorf("FID not open")
 	}
-	if f.QID.Type&stub.QTDIR != 0 {
+	if f.QID.Type&protocol.QTDIR != 0 {
 		if o == 0 {
 			f.oflow = nil
 			if _, err := f.File.Seek(0, SeekStart); err != nil {
@@ -385,7 +384,7 @@ func (e FileServer) Rread(fid stub.FID, o stub.Offset, c stub.Count) ([]byte, er
 			if err != nil {
 				return nil, err
 			}
-			stub.Marshaldir(b, *d9p)
+			protocol.Marshaldir(b, *d9p)
 			// We're not quite doing the array right.
 			// What does work is returning one thing so, for now, do that.
 			return b.Bytes(), nil
@@ -403,7 +402,7 @@ func (e FileServer) Rread(fid stub.FID, o stub.Offset, c stub.Count) ([]byte, er
 	return b[:n], nil
 }
 
-func (e FileServer) Rwrite(fid stub.FID, o stub.Offset, b []byte) (stub.Count, error) {
+func (e FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol.Count, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return -1, err
@@ -417,14 +416,14 @@ func (e FileServer) Rwrite(fid stub.FID, o stub.Offset, b []byte) (stub.Count, e
 	// manage the error if the open mode was wrong. No need to duplicate the logic.
 
 	n, err := f.File.WriteAt(b, int64(o))
-	return stub.Count(n), err
+	return protocol.Count(n), err
 }
 
-type ServerOpt func(*stub.Server) error
+type ServerOpt func(*protocol.Server) error
 
-func NewUFS(opts ...stub.ServerOpt) (*stub.Server, error) {
+func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
 	f := FileServer{}
-	f.Files = make(map[stub.FID]*File)
+	f.Files = make(map[protocol.FID]*File)
 	f.mu = &sync.Mutex{}
 	f.rootPath = "/" // for now.
 	// any opts for the ufs layer can be added here too ...

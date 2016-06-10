@@ -1,5 +1,7 @@
 // Package protocol implements the 9p protocol using the stubs.
 
+//go:generate go run gen.go
+
 package protocol
 
 import (
@@ -13,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"io/ioutil"
+	"sync/atomic"
 	
 )
 
@@ -669,6 +672,6 @@ func Dispatch(s *Server, b *bytes.Buffer, t MType) error {
 		return s.SrvRwrite(b)
 	}
 	// This has been tested by removing Attach from the switch.
-	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", stub.RPCNames[t]))
+	ServerError(b, fmt.Sprintf("Dispatch: %v not supported", RPCNames[t]))
 	return nil
 }
