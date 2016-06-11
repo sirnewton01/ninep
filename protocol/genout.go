@@ -1,5 +1,5 @@
 
-package stub
+package protocol
 import (
 "bytes"
 "fmt"

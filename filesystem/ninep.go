@@ -10,30 +10,30 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/Harvey-OS/ninep/stub"
+	"github.com/Harvey-OS/ninep/protocol"
 )
 
-func OModeToUnixFlags(mode stub.Mode) int {
+func OModeToUnixFlags(mode protocol.Mode) int {
 	ret := int(0)
 	switch mode & 3 {
-	case stub.OREAD:
+	case protocol.OREAD:
 		ret = os.O_RDONLY
 		break
 
-	case stub.ORDWR:
+	case protocol.ORDWR:
 		ret = os.O_RDWR
 		break
 
-	case stub.OWRITE:
+	case protocol.OWRITE:
 		ret = os.O_WRONLY
 		break
 
-	case stub.OEXEC:
+	case protocol.OEXEC:
 		ret = os.O_RDONLY
 		break
 	}
 
-	if mode&stub.OTRUNC != 0 {
+	if mode&protocol.OTRUNC != 0 {
 		ret |= os.O_TRUNC
 	}
 
@@ -60,8 +60,8 @@ func isChar(d os.FileInfo) bool {
 	return (stat.Mode & syscall.S_IFMT) == syscall.S_IFCHR
 }
 
-func fileInfoToQID(d os.FileInfo) stub.QID {
-	var qid stub.QID
+func fileInfoToQID(d os.FileInfo) protocol.QID {
+	var qid protocol.QID
 	sysif := d.Sys()
 
 	// on systems with inodes, use it.
@@ -81,11 +81,11 @@ func fileInfoToQID(d os.FileInfo) stub.QID {
 func dirToQIDType(d os.FileInfo) uint8 {
 	ret := uint8(0)
 	if d.IsDir() {
-		ret |= stub.QTDIR
+		ret |= protocol.QTDIR
 	}
 
 	if d.Mode()&os.ModeSymlink != 0 {
-		ret |= stub.QTSYMLINK
+		ret |= protocol.QTSYMLINK
 	}
 
 	return ret
@@ -94,13 +94,13 @@ func dirToQIDType(d os.FileInfo) uint8 {
 func dirTo9p2000Mode(d os.FileInfo) uint32 {
 	ret := uint32(d.Mode() & 0777)
 	if d.IsDir() {
-		ret |= stub.DMDIR
+		ret |= protocol.DMDIR
 	}
 	return ret
 }
 
-func dirTo9p2000Dir(fi os.FileInfo) (*stub.Dir, error) {
-	d := &stub.Dir{}
+func dirTo9p2000Dir(fi os.FileInfo) (*protocol.Dir, error) {
+	d := &protocol.Dir{}
 	d.QID = fileInfoToQID(fi)
 	d.Mode = dirTo9p2000Mode(fi)
 	// TODO: use info on systems that have it.

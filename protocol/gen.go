@@ -32,12 +32,12 @@ import (
 	"reflect"
 	"text/template"
 
-	"github.com/Harvey-OS/ninep/stub"
+	"github.com/Harvey-OS/ninep/protocol"
 )
 
 const (
 	header = `
-package stub
+package protocol
 import (
 "bytes"
 "fmt"
@@ -93,19 +93,19 @@ var (
 	doDebug  = flag.Bool("d", false, "Debug prints")
 	debug    = nodebug //log.Printf
 	packages = []*pack{
-		{n: "error", t: stub.RerrorPkt{}, tn: "Rerror", r: stub.RerrorPkt{}, rn: "Rerror"},
-		{n: "version", t: stub.TversionPkt{}, tn: "Tversion", r: stub.RversionPkt{}, rn: "Rversion"},
-		{n: "attach", t: stub.TattachPkt{}, tn: "Tattach", r: stub.RattachPkt{}, rn: "Rattach"},
-		{n: "flush", t: stub.TflushPkt{}, tn: "Tflush", r: stub.RflushPkt{}, rn: "Rflush"},
-		{n: "walk", t: stub.TwalkPkt{}, tn: "Twalk", r: stub.RwalkPkt{}, rn: "Rwalk"},
-		{n: "open", t: stub.TopenPkt{}, tn: "Topen", r: stub.RopenPkt{}, rn: "Ropen"},
-		{n: "create", t: stub.TcreatePkt{}, tn: "Tcreate", r: stub.RcreatePkt{}, rn: "Rcreate"},
-		{n: "stat", t: stub.TstatPkt{}, tn: "Tstat", r: stub.RstatPkt{}, rn: "Rstat"},
-		{n: "wstat", t: stub.TwstatPkt{}, tn: "Twstat", r: stub.RwstatPkt{}, rn: "Rwstat"},
-		{n: "clunk", t: stub.TclunkPkt{}, tn: "Tclunk", r: stub.RclunkPkt{}, rn: "Rclunk"},
-		{n: "remove", t: stub.TremovePkt{}, tn: "Tremove", r: stub.RremovePkt{}, rn: "Rremove"},
-		{n: "read", t: stub.TreadPkt{}, tn: "Tread", r: stub.RreadPkt{}, rn: "Rread"},
-		{n: "write", t: stub.TwritePkt{}, tn: "Twrite", r: stub.RwritePkt{}, rn: "Rwrite"},
+		{n: "error", t: protocol.RerrorPkt{}, tn: "Rerror", r: protocol.RerrorPkt{}, rn: "Rerror"},
+		{n: "version", t: protocol.TversionPkt{}, tn: "Tversion", r: protocol.RversionPkt{}, rn: "Rversion"},
+		{n: "attach", t: protocol.TattachPkt{}, tn: "Tattach", r: protocol.RattachPkt{}, rn: "Rattach"},
+		{n: "flush", t: protocol.TflushPkt{}, tn: "Tflush", r: protocol.RflushPkt{}, rn: "Rflush"},
+		{n: "walk", t: protocol.TwalkPkt{}, tn: "Twalk", r: protocol.RwalkPkt{}, rn: "Rwalk"},
+		{n: "open", t: protocol.TopenPkt{}, tn: "Topen", r: protocol.RopenPkt{}, rn: "Ropen"},
+		{n: "create", t: protocol.TcreatePkt{}, tn: "Tcreate", r: protocol.RcreatePkt{}, rn: "Rcreate"},
+		{n: "stat", t: protocol.TstatPkt{}, tn: "Tstat", r: protocol.RstatPkt{}, rn: "Rstat"},
+		{n: "wstat", t: protocol.TwstatPkt{}, tn: "Twstat", r: protocol.RwstatPkt{}, rn: "Rwstat"},
+		{n: "clunk", t: protocol.TclunkPkt{}, tn: "Tclunk", r: protocol.RclunkPkt{}, rn: "Rclunk"},
+		{n: "remove", t: protocol.TremovePkt{}, tn: "Tremove", r: protocol.RremovePkt{}, rn: "Rremove"},
+		{n: "read", t: protocol.TreadPkt{}, tn: "Tread", r: protocol.RreadPkt{}, rn: "Rread"},
+		{n: "write", t: protocol.TwritePkt{}, tn: "Twrite", r: protocol.RwritePkt{}, rn: "Rwrite"},
 	}
 	msfunc = template.Must(template.New("ms").Parse(`func Marshal{{.MFunc}} (b *bytes.Buffer, {{.MParms}}) {
 var l uint64
@@ -286,7 +286,7 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genEncodeData(s, n+"[i]", e)
 		e.MCode.WriteString("}\n")
-	case "[]stub.QID":
+	case "[]protocol.QID":
 		var u uint16
 		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
 		if e.inBWrite {
@@ -294,7 +294,7 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 			e.inBWrite = false
 		}
 		e.MCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
-		genEncodeData(stub.QID{}, n+"[i]", e)
+		genEncodeData(protocol.QID{}, n+"[i]", e)
 		e.MCode.WriteString("\t})\n")
 		e.inBWrite = false
 		e.MCode.WriteString("}\n")
@@ -306,7 +306,7 @@ func genEncodeSlice(v interface{}, n string, e *emitter) error {
 			e.inBWrite = false
 		}
 		e.MCode.WriteString(fmt.Sprintf("\tb.Write(%v)\n", n))
-	case "[]stub.DataCnt16":
+	case "[]protocol.DataCnt16":
 		var u uint16
 		emitEncodeInt(u, fmt.Sprintf("len(%v)", n), 2, e)
 		if e.inBWrite {
@@ -332,19 +332,19 @@ func genDecodeSlice(v interface{}, n string, e *emitter) error {
 		var s string
 		genDecodeData(s, n+"[i]", e)
 		e.UCode.WriteString("}\n")
-	case "[]stub.QID":
+	case "[]protocol.QID":
 		var u uint64
 		emitDecodeInt(u, "l", 2, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = make([]QID, l)\n", n))
 		e.UCode.WriteString(fmt.Sprintf("for i := range %v {\n", n))
-		genDecodeData(stub.QID{}, n+"[i]", e)
+		genDecodeData(protocol.QID{}, n+"[i]", e)
 		e.UCode.WriteString("}\n")
 	case "[]byte", "[]uint8":
 		var u uint64
 		emitDecodeInt(u, "l", 4, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = b.Bytes()[:l]\n", n))
 		e.UCode.WriteString("\t_ = b.Next(int(l))\n")
-	case "[]stub.DataCnt16":
+	case "[]protocol.DataCnt16":
 		var u uint64
 		emitDecodeInt(u, "l", 2, e)
 		e.UCode.WriteString(fmt.Sprintf("\t%v = b.Bytes()[:l]\n", n))
@@ -417,9 +417,9 @@ func tn(f reflect.Value) string {
 	if n == "" {
 		t := f.Type().String()
 		switch t {
-		case "[]stub.QID":
+		case "[]protocol.QID":
 			n = "[]QID"
-		case "[]stub.DataCnt16":
+		case "[]protocol.DataCnt16":
 			n = "[]byte"
 		default:
 			n = t
@@ -535,17 +535,17 @@ func main() {
 
 	// yeah, it's a hack.
 	dir := &emitter{"dir", "dir", &bytes.Buffer{}, &bytes.Buffer{}, "", &bytes.Buffer{}, "dir", &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}, false}
-	if err := genEncodeStruct(stub.DirPkt{}, "", dir); err != nil {
+	if err := genEncodeStruct(protocol.DirPkt{}, "", dir); err != nil {
 		log.Fatalf("%v", err)
 	}
-	if err := genDecodeStruct(stub.DirPkt{}, "", dir); err != nil {
+	if err := genDecodeStruct(protocol.DirPkt{}, "", dir); err != nil {
 		log.Fatalf("%v", err)
 	}
-	if err := genParms(stub.DirPkt{}, "dir", dir); err != nil {
+	if err := genParms(protocol.DirPkt{}, "dir", dir); err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	if err := genRets(stub.DirPkt{}, "dir", dir); err != nil {
+	if err := genRets(protocol.DirPkt{}, "dir", dir); err != nil {
 		log.Fatalf("%v", err)
 	}
 
