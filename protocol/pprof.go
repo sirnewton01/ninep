@@ -1,6 +1,6 @@
-package protocol
-
 // +build pprof
+
+package protocol
 
 import (
 	"log"
