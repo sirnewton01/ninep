@@ -128,7 +128,7 @@ func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string)
 		p = path.Join(p, paths[i])
 		st, err := os.Lstat(p)
 		if err != nil {
-			return q[:i], nil
+			return q[:i], fmt.Errorf("file does not exist")
 		}
 		q[i] = fileInfoToQID(st)
 	}
