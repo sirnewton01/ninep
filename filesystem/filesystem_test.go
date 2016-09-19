@@ -106,8 +106,8 @@ func TestMount(t *testing.T) {
 
 	t.Logf("Attach is %v", a)
 	w, err := c.CallTwalk(0, 1, []string{"hi", "there"})
-	if err != nil {
-		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want nil, got %v", err)
+	if err == nil {
+		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want err, got nil")
 	}
 	if len(w) > 0 {
 		t.Fatalf("CallTwalk(0,1,[\"hi\", \"there\"]): want 0 QIDs, got %v", w)
