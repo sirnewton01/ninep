@@ -7,10 +7,15 @@
 package ufs
 
 import (
+	"flag"
 	"os"
 	"syscall"
 
 	"github.com/Harvey-OS/ninep/protocol"
+)
+
+var (
+	user = flag.String("user", "harvey", "Default user name")
 )
 
 func OModeToUnixFlags(mode protocol.Mode) int {
@@ -108,8 +113,8 @@ func dirTo9p2000Dir(fi os.FileInfo) (*protocol.Dir, error) {
 	d.Mtime = uint32(fi.ModTime().Unix())
 	d.Length = uint64(fi.Size())
 	d.Name = fi.Name()
-	d.User = "root"
-	d.Group = "root"
+	d.User = *user
+	d.Group = *user
 
 	return d, nil
 }
