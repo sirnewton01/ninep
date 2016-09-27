@@ -151,7 +151,7 @@ func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string)
 			}
 			// we only get here if i is > 0 and less than nwname,
 			// so the i + 1 should be safe.
-			return q[:i+1], fmt.Errorf("file does not exist")
+			return q[:i+1], nil
 		}
 		q[i] = fileInfoToQID(st)
 	}
