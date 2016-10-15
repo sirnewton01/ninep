@@ -291,7 +291,7 @@ func (e FileServer) Rwstat(fid protocol.FID, b []byte) error {
 		// We'll allow an absolute path in the Name and, if it is,
 		// we will make it relative to root. This is a gigantic performance
 		// improvement in systems that allow it.
-		if filepath.IsAbs(f.fullName) {
+		if filepath.IsAbs(dir.Name) {
 			newname = path.Join(e.rootPath, dir.Name)
 		}
 
