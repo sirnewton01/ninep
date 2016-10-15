@@ -51,7 +51,7 @@ func stat(s string) (*protocol.Dir, protocol.QID, error) {
 	var q protocol.QID
 	st, err := os.Lstat(s)
 	if err != nil {
-		return nil, q, fmt.Errorf("Enoent")
+		return nil, q, fmt.Errorf("does not exist")
 	}
 	d, err := dirTo9p2000Dir(st)
 	if err != nil {
@@ -74,7 +74,7 @@ func (e FileServer) getFile(fid protocol.FID) (*File, error) {
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
 	if !ok {
-		return nil, fmt.Errorf("Bad FID")
+		return nil, fmt.Errorf("does not exist")
 	}
 
 	return f, nil
@@ -107,7 +107,7 @@ func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string)
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
 	if !ok {
-		return nil, fmt.Errorf("Bad FID")
+		return nil, fmt.Errorf("does not exist")
 	}
 	if len(paths) == 0 {
 		e.mu.Lock()
@@ -147,11 +147,11 @@ func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string)
 			// to sum up: if any walks have succeeded, you
 			// return the QIDS for one more than the last successful walk
 			if i == 0 {
-				return nil, fmt.Errorf("file does not exist")
+				return nil, fmt.Errorf("does not exist")
 			}
 			// we only get here if i is > 0 and less than nwname,
-			// so the i + 1 should be safe.
-			return q[:i+1], nil
+			// so the i should be safe.
+			return q[:i], nil
 		}
 		q[i] = fileInfoToQID(st)
 	}
@@ -172,7 +172,7 @@ func (e FileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, p
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
 	if !ok {
-		return protocol.QID{}, 0, fmt.Errorf("Bad FID")
+		return protocol.QID{}, 0, fmt.Errorf("does not exist")
 	}
 
 	var err error
@@ -341,7 +341,7 @@ func (e FileServer) clunk(fid protocol.FID) (*File, error) {
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
 	if !ok {
-		return nil, fmt.Errorf("Bad FID")
+		return nil, fmt.Errorf("does not exist")
 	}
 	delete(e.Files, fid)
 	// What do we do if we can't close it?
