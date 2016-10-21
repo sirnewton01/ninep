@@ -295,6 +295,13 @@ func (e FileServer) Rwstat(fid protocol.FID, b []byte) error {
 			newname = path.Join(e.rootPath, dir.Name)
 		}
 
+		// If to exists, and to is a directory, we can't do the
+		// rename, since os.Rename will move from into to.
+
+		st, err := os.Stat(newname)
+		if err == nil && st.IsDir() {
+			return fmt.Errorf("is a directory")
+		}
 		if err := os.Rename(f.fullName, newname); err != nil {
 			return err
 		}
