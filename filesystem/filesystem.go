@@ -61,7 +61,7 @@ func stat(s string) (*protocol.Dir, protocol.QID, error) {
 	return d, q, nil
 }
 
-func (e FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.MaxSize, string, error) {
+func (e *FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.MaxSize, string, error) {
 	if version != "9P2000" {
 		return 0, "", fmt.Errorf("%v not supported; only 9P2000", version)
 	}
@@ -69,7 +69,7 @@ func (e FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.M
 	return msize, version, nil
 }
 
-func (e FileServer) getFile(fid protocol.FID) (*File, error) {
+func (e *FileServer) getFile(fid protocol.FID) (*File, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
@@ -80,7 +80,7 @@ func (e FileServer) getFile(fid protocol.FID) (*File, error) {
 	return f, nil
 }
 
-func (e FileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, aname string) (protocol.QID, error) {
+func (e *FileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, aname string) (protocol.QID, error) {
 	if afid != protocol.NOFID {
 		return protocol.QID{}, fmt.Errorf("We don't do auth attach")
 	}
@@ -98,11 +98,11 @@ func (e FileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, a
 	return r.QID, nil
 }
 
-func (e FileServer) Rflush(o protocol.Tag) error {
+func (e *FileServer) Rflush(o protocol.Tag) error {
 	return nil
 }
 
-func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([]protocol.QID, error) {
+func (e *FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([]protocol.QID, error) {
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
@@ -167,7 +167,7 @@ func (e FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string)
 	return q, nil
 }
 
-func (e FileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
+func (e *FileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
 	e.mu.Lock()
 	f, ok := e.Files[fid]
 	e.mu.Unlock()
@@ -183,7 +183,7 @@ func (e FileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, p
 
 	return f.QID, e.IOunit, nil
 }
-func (e FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
+func (e *FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return protocol.QID{}, 0, err
@@ -223,12 +223,12 @@ func (e FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, m
 	f.File = of
 	return q, 8000, err
 }
-func (e FileServer) Rclunk(fid protocol.FID) error {
+func (e *FileServer) Rclunk(fid protocol.FID) error {
 	_, err := e.clunk(fid)
 	return err
 }
 
-func (e FileServer) Rstat(fid protocol.FID) ([]byte, error) {
+func (e *FileServer) Rstat(fid protocol.FID) ([]byte, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return []byte{}, err
@@ -245,7 +245,7 @@ func (e FileServer) Rstat(fid protocol.FID) ([]byte, error) {
 	protocol.Marshaldir(&b, *d)
 	return b.Bytes(), nil
 }
-func (e FileServer) Rwstat(fid protocol.FID, b []byte) error {
+func (e *FileServer) Rwstat(fid protocol.FID, b []byte) error {
 	var changed bool
 	f, err := e.getFile(fid)
 	if err != nil {
@@ -343,7 +343,7 @@ func (e FileServer) Rwstat(fid protocol.FID, b []byte) error {
 	return nil
 }
 
-func (e FileServer) clunk(fid protocol.FID) (*File, error) {
+func (e *FileServer) clunk(fid protocol.FID) (*File, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	f, ok := e.Files[fid]
@@ -363,7 +363,7 @@ func (e FileServer) clunk(fid protocol.FID) (*File, error) {
 
 // Rremove removes the file. The question of whether the file continues to be accessible
 // is system dependent.
-func (e FileServer) Rremove(fid protocol.FID) error {
+func (e *FileServer) Rremove(fid protocol.FID) error {
 	f, err := e.clunk(fid)
 	if err != nil {
 		return err
@@ -371,7 +371,7 @@ func (e FileServer) Rremove(fid protocol.FID) error {
 	return os.Remove(f.fullName)
 }
 
-func (e FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count) ([]byte, error) {
+func (e *FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count) ([]byte, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return nil, err
@@ -432,7 +432,7 @@ func (e FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count)
 	return b[:n], nil
 }
 
-func (e FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol.Count, error) {
+func (e *FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (protocol.Count, error) {
 	f, err := e.getFile(fid)
 	if err != nil {
 		return -1, err
@@ -452,7 +452,7 @@ func (e FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (proto
 type ServerOpt func(*protocol.Server) error
 
 func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
-	f := FileServer{}
+	f := &FileServer{}
 	f.Files = make(map[protocol.FID]*File)
 	f.mu = &sync.Mutex{}
 	f.rootPath = "/" // for now.
