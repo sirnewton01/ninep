@@ -90,7 +90,7 @@ func (e *FileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, 
 	}
 	// There should be no .. or other such junk in the Aname. Clean it up anyway.
 	aname = path.Join("/", aname)
-	aname = path.Join(*root, aname)
+	aname = path.Join(e.rootPath, aname)
 	st, err := os.Stat(aname)
 	if err != nil {
 		return protocol.QID{}, err
@@ -386,7 +386,7 @@ func (e *FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count
 	if f.QID.Type&protocol.QTDIR != 0 {
 		if o == 0 {
 			f.oflow = nil
-			if _, err := f.File.Seek(0, SeekStart); err != nil {
+			if err := resetDir(f); err != nil {
 				return nil, err
 			}
 		}
@@ -596,7 +596,7 @@ func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
 	f := &FileServer{}
 	f.Files = make(map[protocol.FID]*File)
 	f.mu = &sync.Mutex{}
-	f.rootPath = "/" // for now.
+	f.rootPath = *root // for now.
 	// any opts for the ufs layer can be added here too ...
 	var d protocol.NineServer = f
 	var s *protocol.Server
