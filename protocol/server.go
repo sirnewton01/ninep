@@ -140,12 +140,12 @@ func (s *Server) logf(format string, args ...interface{}) {
 }
 
 func (c *conn) String() string {
-	return fmt.Sprintf("%v Dead %v %d replies pending", c.dead, len(c.replies))
+	return fmt.Sprintf("Dead %v %d replies pending", c.dead, len(c.replies))
 }
 
 func (c *conn) logf(format string, args ...interface{}) {
 	// prepend some info about the conn
-	c.server.logf("[%v] "+format, append([]interface{}{c.remoteAddr}, args)...)
+	c.server.logf("[%v] "+format, append([]interface{}{c.remoteAddr}, args...)...)
 }
 
 func (c *conn) serve() {
