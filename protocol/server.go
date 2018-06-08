@@ -41,9 +41,6 @@ type conn struct {
 	// remoteAddr is rwc.RemoteAddr().String(). See note in net/http/server.go.
 	remoteAddr string
 
-	// versioned set to true after first Tversion
-	versioned bool
-
 	// replies
 	replies chan RPCReply
 
@@ -143,7 +140,7 @@ func (s *Server) logf(format string, args ...interface{}) {
 }
 
 func (c *conn) String() string {
-	return fmt.Sprintf("Versioned %v Dead %v %d replies pending", c.versioned, c.dead, len(c.replies))
+	return fmt.Sprintf("%v Dead %v %d replies pending", c.dead, len(c.replies))
 }
 
 func (c *conn) logf(format string, args ...interface{}) {
@@ -206,21 +203,6 @@ func (s *Server) NineServer() NineServer {
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
 func Dispatch(s *Server, b *bytes.Buffer, t MType) error {
-	// TODO: should this be in c.serve?
-	/*
-		switch t {
-		case Tversion:
-			s.Versioned = true
-		default:
-			if !s.Versioned {
-				m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t])
-				// Yuck. Provide helper.
-				d := b.Bytes()
-				MarshalRerrorPkt(b, Tag(d[0])|Tag(d[1])<<8, m)
-				return fmt.Errorf("Dispatch: %v not allowed before Tversion", RPCNames[t])
-			}
-		}
-	*/
 	switch t {
 	case Tversion:
 		return s.SrvRversion(b)
