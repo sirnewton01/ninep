@@ -12,30 +12,53 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"time"
 )
+
+const DefaultAddr = ":5640"
 
 // Server is a 9p server.
 // For now it's extremely serial. But we will use a chan for replies to ensure that
 // we can go to a more concurrent one later.
 type Server struct {
-	NS        NineServer
-	D         Dispatcher
-	Versioned bool
-	FromNet   io.ReadCloser
-	ToNet     io.WriteCloser
-	Replies   chan RPCReply
-	Trace     Tracer
-	Dead      bool
+	NS NineServer
+	D  Dispatcher
+
+	// TCP address to listen on, default is DefaultAddr
+	Addr string
+
+	// Trace function for logging
+	Trace Tracer
 
 	fprofile *os.File
 }
 
+type conn struct {
+	// server on which the connection arrived.
+	server *Server
+
+	// rwc is the underlying network connection.
+	rwc net.Conn
+
+	// remoteAddr is rwc.RemoteAddr().String(). See note in net/http/server.go.
+	remoteAddr string
+
+	// versioned set to true after first Tversion
+	versioned bool
+
+	// replies
+	replies chan RPCReply
+
+	// dead is set to true when we finish reading packets.
+	dead bool
+}
+
 func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
 	s := &Server{}
-	s.Replies = make(chan RPCReply, NumTags)
 	s.NS = ns
 	s.D = Dispatch
 	for _, o := range opts {
@@ -46,8 +69,83 @@ func NewServer(ns NineServer, opts ...ServerOpt) (*Server, error) {
 	return s, nil
 }
 
+func (s *Server) newConn(rwc net.Conn) *conn {
+	c := &conn{
+		server:  s,
+		rwc:     rwc,
+		replies: make(chan RPCReply, NumTags),
+	}
+
+	return c
+}
+
+// ListenAndServe starts a new Listener on e.Addr and then calls serve.
+func (s *Server) ListenAndServe() error {
+	addr := s.Addr
+	if addr == "" {
+		addr = DefaultAddr
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	return s.Serve(ln)
+}
+
+// Serve accepts incoming connections on the Listener and calls e.Accept on
+// each connection.
+func (s *Server) Serve(ln net.Listener) error {
+	defer ln.Close()
+
+	var tempDelay time.Duration // how long to sleep on accept failure
+
+	// from http.Server.Serve
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				s.logf("ufs: Accept error: %v; retrying in %v", err, tempDelay)
+				time.Sleep(tempDelay)
+				continue
+			}
+			return err
+		}
+		tempDelay = 0
+
+		if err := s.Accept(conn); err != nil {
+			return err
+		}
+	}
+}
+
+// Accept a new connection, typically called via Serve but may be called
+// directly if there's a connection from an exotic listener.
+func (s *Server) Accept(conn net.Conn) error {
+	c := s.newConn(conn)
+
+	go c.serve()
+	return nil
+}
+
 func (s *Server) String() string {
-	return fmt.Sprintf("Versioned %v Dead %v %d replies pending", s.Versioned, s.Dead, len(s.Replies))
+	// TODO
+	return ""
+}
+
+func (s *Server) logf(format string, args ...interface{}) {
+	if s.Trace != nil {
+		s.Trace(format, args...)
+	}
 }
 
 func (s *Server) beginSrvProfile() {
@@ -65,61 +163,63 @@ func (s *Server) endSrvProfile() {
 	log.Println("writing cpuprofile to", s.fprofile.Name())
 }
 
-func (s *Server) readNetPackets() {
-	if s.FromNet == nil {
-		s.Dead = true
+func (c *conn) String() string {
+	return fmt.Sprintf("Versioned %v Dead %v %d replies pending", c.versioned, c.dead, len(c.replies))
+}
+
+func (c *conn) logf(format string, args ...interface{}) {
+	// prepend some info about the conn
+	c.server.logf("[%v] "+format, append([]interface{}{c.remoteAddr}, args)...)
+}
+
+func (c *conn) serve() {
+	if c.rwc == nil {
+		c.dead = true
 		return
 	}
-	defer s.FromNet.Close()
-	defer s.ToNet.Close()
-	if s.Trace != nil {
-		s.Trace("Starting readNetPackets")
-	}
+
+	c.remoteAddr = c.rwc.RemoteAddr().String()
+
+	defer c.rwc.Close()
+
+	c.logf("Starting readNetPackets")
 	if *serverprofile != "" {
-		s.beginSrvProfile()
-		defer s.endSrvProfile()
+		// TODO
+		//s.beginSrvProfile()
+		//defer s.endSrvProfile()
 	}
-	for !s.Dead {
+
+	for !c.dead {
 		l := make([]byte, 7)
-		if n, err := s.FromNet.Read(l); err != nil || n < 7 {
+		if n, err := c.rwc.Read(l); err != nil || n < 7 {
 			log.Printf("readNetPackets: short read: %v", err)
-			s.Dead = true
+			c.dead = true
 			return
 		}
 		sz := int64(l[0]) + int64(l[1])<<8 + int64(l[2])<<16 + int64(l[3])<<24
 		t := MType(l[4])
 		b := bytes.NewBuffer(l[5:])
-		r := io.LimitReader(s.FromNet, sz-7)
+		r := io.LimitReader(c.rwc, sz-7)
 		if _, err := io.Copy(b, r); err != nil {
 			log.Printf("readNetPackets: short read: %v", err)
-			s.Dead = true
+			c.dead = true
 			return
 		}
-		if s.Trace != nil {
-			s.Trace("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
-		}
+		c.logf("readNetPackets: got %v, len %d, sending to IO", RPCNames[MType(l[4])], b.Len())
 		//panic(fmt.Sprintf("packet is %v", b.Bytes()[:]))
 		//panic(fmt.Sprintf("s is %v", s))
-		if err := s.D(s, b, t); err != nil {
+		if err := c.server.D(c.server, b, t); err != nil {
 			log.Printf("%v: %v", RPCNames[MType(l[4])], err)
 		}
-		if s.Trace != nil {
-			s.Trace("readNetPackets: Write %v back", b)
-		}
-		amt, err := s.ToNet.Write(b.Bytes())
+		c.logf("readNetPackets: Write %v back", b)
+		amt, err := c.rwc.Write(b.Bytes())
 		if err != nil {
 			log.Printf("readNetPackets: write error: %v", err)
-			s.Dead = true
+			c.dead = true
 			return
 		}
-		if s.Trace != nil {
-			s.Trace("Returned %v amt %v", b, amt)
-		}
+		c.logf("Returned %v amt %v", b, amt)
 	}
-}
-
-func (s *Server) Start() {
-	go s.readNetPackets()
 }
 
 func (s *Server) NineServer() NineServer {
@@ -132,18 +232,21 @@ func (s *Server) NineServer() NineServer {
 // but most people I talked do disliked that. So we don't. If you want
 // to make things optional, just define the ones you want to implement in this case.
 func Dispatch(s *Server, b *bytes.Buffer, t MType) error {
-	switch t {
-	case Tversion:
-		s.Versioned = true
-	default:
-		if !s.Versioned {
-			m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t])
-			// Yuck. Provide helper.
-			d := b.Bytes()
-			MarshalRerrorPkt(b, Tag(d[0])|Tag(d[1])<<8, m)
-			return fmt.Errorf("Dispatch: %v not allowed before Tversion", RPCNames[t])
+	// TODO: should this be in c.serve?
+	/*
+		switch t {
+		case Tversion:
+			s.Versioned = true
+		default:
+			if !s.Versioned {
+				m := fmt.Sprintf("Dispatch: %v not allowed before Tversion", RPCNames[t])
+				// Yuck. Provide helper.
+				d := b.Bytes()
+				MarshalRerrorPkt(b, Tag(d[0])|Tag(d[1])<<8, m)
+				return fmt.Errorf("Dispatch: %v not allowed before Tversion", RPCNames[t])
+			}
 		}
-	}
+	*/
 	switch t {
 	case Tversion:
 		return s.SrvRversion(b)
