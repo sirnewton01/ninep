@@ -4,12 +4,7 @@
 
 package protocol
 
-import (
-	"bytes"
-	"flag"
-)
-
-var serverprofile = flag.String("serverprofile", "", "This is for specifying the prefix of the output file for the profile")
+import "bytes"
 
 // 9P2000 message types
 const (

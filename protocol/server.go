@@ -10,12 +10,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
-	"os"
-	"path/filepath"
-	"runtime/pprof"
 	"time"
 )
 
@@ -33,8 +29,6 @@ type Server struct {
 
 	// Trace function for logging
 	Trace Tracer
-
-	fprofile *os.File
 }
 
 type conn struct {
@@ -148,21 +142,6 @@ func (s *Server) logf(format string, args ...interface{}) {
 	}
 }
 
-func (s *Server) beginSrvProfile() {
-	var err error
-	s.fprofile, err = ioutil.TempFile(filepath.Dir(*serverprofile), filepath.Base(*serverprofile))
-	if err != nil {
-		log.Fatal(err)
-	}
-	pprof.StartCPUProfile(s.fprofile)
-}
-
-func (s *Server) endSrvProfile() {
-	pprof.StopCPUProfile()
-	s.fprofile.Close()
-	log.Println("writing cpuprofile to", s.fprofile.Name())
-}
-
 func (c *conn) String() string {
 	return fmt.Sprintf("Versioned %v Dead %v %d replies pending", c.versioned, c.dead, len(c.replies))
 }
@@ -183,11 +162,6 @@ func (c *conn) serve() {
 	defer c.rwc.Close()
 
 	c.logf("Starting readNetPackets")
-	if *serverprofile != "" {
-		// TODO
-		//s.beginSrvProfile()
-		//defer s.endSrvProfile()
-	}
 
 	for !c.dead {
 		l := make([]byte, 7)
