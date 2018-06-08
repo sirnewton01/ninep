@@ -20,25 +20,18 @@ var (
 
 func main() {
 	flag.Parse()
-	l, err := net.Listen(*ntype, *naddr)
+
+	ln, err := net.Listen(*ntype, *naddr)
 	if err != nil {
 		log.Fatalf("Listen failed: %v", err)
 	}
 
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			log.Printf("Accept: %v", err)
-		}
+	s, err := ufs.NewUFS(func(s *protocol.Server) error {
+		s.Trace = nil // log.Printf
+		return nil
+	})
 
-		_, err = ufs.NewUFS(func(s *protocol.Server) error {
-			s.FromNet, s.ToNet = c, c
-			s.Trace = nil // log.Printf
-			return nil
-		})
-		if err != nil {
-			log.Printf("Error: %v", err)
-		}
+	if err := s.Serve(ln); err != nil {
+		log.Fatal(err)
 	}
-
 }

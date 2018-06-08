@@ -466,7 +466,7 @@ func (e *DebugFileServer) Rversion(msize protocol.MaxSize, version string) (prot
 
 func (e *DebugFileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, aname string) (protocol.QID, error) {
 	log.Printf(">>> Tattach fid %v,  afid %v, uname %v, aname %v\n", fid, afid,
-	           uname, aname)
+		uname, aname)
 	qid, err := e.FileServer.Rattach(fid, afid, uname, aname)
 	if err == nil {
 		log.Printf("<<< Rattach %v\n", qid)
@@ -511,7 +511,7 @@ func (e *DebugFileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.
 
 func (e *DebugFileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
 	log.Printf(">>> Tcreate fid %v, name %v, perm %v, mode %v\n", fid, name,
-	           perm, mode)
+		perm, mode)
 	qid, iounit, err := e.FileServer.Rcreate(fid, name, perm, mode)
 	if err == nil {
 		log.Printf("<<< Rcreate %v %v\n", qid, iounit)
@@ -589,7 +589,6 @@ func (e *DebugFileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) 
 	return c, err
 }
 
-
 type ServerOpt func(*protocol.Server) error
 
 func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
@@ -611,6 +610,5 @@ func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
 		return nil, err
 	}
 	f.IOunit = 8192
-	s.Start()
 	return s, nil
 }
