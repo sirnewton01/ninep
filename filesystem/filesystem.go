@@ -19,14 +19,10 @@ import (
 	"github.com/Harvey-OS/ninep/protocol"
 )
 
-const (
-	SeekStart = 0
-)
-
-type File struct {
+type file struct {
 	protocol.QID
 	fullName string
-	File     *os.File
+	file     *os.File
 	// We can't know how big a serialized dentry is until we serialize it.
 	// At that point it might be too big. We save it here if that happens,
 	// and on the next directory read we start with that.
@@ -34,12 +30,14 @@ type File struct {
 }
 
 type FileServer struct {
-	mu        *sync.Mutex
-	root      *File
+	root      *file
 	rootPath  string
 	Versioned bool
-	Files     map[protocol.FID]*File
 	IOunit    protocol.MaxSize
+
+	// mu guards below
+	mu    sync.Mutex
+	files map[protocol.FID]*file
 }
 
 var (
@@ -69,10 +67,10 @@ func (e *FileServer) Rversion(msize protocol.MaxSize, version string) (protocol.
 	return msize, version, nil
 }
 
-func (e *FileServer) getFile(fid protocol.FID) (*File, error) {
+func (e *FileServer) getFile(fid protocol.FID) (*file, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	f, ok := e.Files[fid]
+	f, ok := e.files[fid]
 	if !ok {
 		return nil, fmt.Errorf("does not exist")
 	}
@@ -91,9 +89,9 @@ func (e *FileServer) Rattach(fid protocol.FID, afid protocol.FID, uname string, 
 	if err != nil {
 		return protocol.QID{}, err
 	}
-	r := &File{fullName: aname}
+	r := &file{fullName: aname}
 	r.QID = fileInfoToQID(st)
-	e.Files[fid] = r
+	e.files[fid] = r
 	e.root = r
 	return r.QID, nil
 }
@@ -104,7 +102,7 @@ func (e *FileServer) Rflush(o protocol.Tag) error {
 
 func (e *FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string) ([]protocol.QID, error) {
 	e.mu.Lock()
-	f, ok := e.Files[fid]
+	f, ok := e.files[fid]
 	e.mu.Unlock()
 	if !ok {
 		return nil, fmt.Errorf("does not exist")
@@ -112,12 +110,12 @@ func (e *FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string
 	if len(paths) == 0 {
 		e.mu.Lock()
 		defer e.mu.Unlock()
-		_, ok := e.Files[newfid]
+		_, ok := e.files[newfid]
 		if ok {
 			return nil, fmt.Errorf("FID in use: clone walk, fid %d newfid %d", fid, newfid)
 		}
 		nf := *f
-		e.Files[newfid] = &nf
+		e.files[newfid] = &nf
 		return []protocol.QID{}, nil
 	}
 	p := f.fullName
@@ -159,24 +157,24 @@ func (e *FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string
 	defer e.mu.Unlock()
 	// this is quite unlikely, which is why we don't bother checking for it first.
 	if fid != newfid {
-		if _, ok := e.Files[newfid]; ok {
+		if _, ok := e.files[newfid]; ok {
 			return nil, fmt.Errorf("FID in use: walk to %v, fid %v, newfid %v", paths, fid, newfid)
 		}
 	}
-	e.Files[newfid] = &File{fullName: p, QID: q[i]}
+	e.files[newfid] = &file{fullName: p, QID: q[i]}
 	return q, nil
 }
 
 func (e *FileServer) Ropen(fid protocol.FID, mode protocol.Mode) (protocol.QID, protocol.MaxSize, error) {
 	e.mu.Lock()
-	f, ok := e.Files[fid]
+	f, ok := e.files[fid]
 	e.mu.Unlock()
 	if !ok {
 		return protocol.QID{}, 0, fmt.Errorf("does not exist")
 	}
 
 	var err error
-	f.File, err = os.OpenFile(f.fullName, OModeToUnixFlags(mode), 0)
+	f.file, err = os.OpenFile(f.fullName, modeToUnixFlags(mode), 0)
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
@@ -188,7 +186,7 @@ func (e *FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, 
 	if err != nil {
 		return protocol.QID{}, 0, err
 	}
-	if f.File != nil {
+	if f.file != nil {
 		return protocol.QID{}, 0, fmt.Errorf("FID already open")
 	}
 	n := path.Join(f.fullName, name)
@@ -199,7 +197,7 @@ func (e *FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, 
 		if err != nil {
 			return protocol.QID{}, 0, err
 		}
-		f.File, err = os.Open(n)
+		f.file, err = os.Open(n)
 		if err != nil {
 			return protocol.QID{}, 0, err
 		}
@@ -208,7 +206,7 @@ func (e *FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, 
 		return q, 8000, err
 	}
 
-	m := OModeToUnixFlags(mode) | os.O_CREATE | os.O_TRUNC
+	m := modeToUnixFlags(mode) | os.O_CREATE | os.O_TRUNC
 	p := os.FileMode(perm) & 0777
 	of, err := os.OpenFile(n, m, p)
 	if err != nil {
@@ -220,7 +218,7 @@ func (e *FileServer) Rcreate(fid protocol.FID, name string, perm protocol.Perm, 
 	}
 	f.fullName = n
 	f.QID = q
-	f.File = of
+	f.file = of
 	return q, 8000, err
 }
 func (e *FileServer) Rclunk(fid protocol.FID) error {
@@ -337,24 +335,24 @@ func (e *FileServer) Rwstat(fid protocol.FID, b []byte) error {
 		}
 	}
 
-	if !changed && f.File != nil {
-		f.File.Sync()
+	if !changed && f.file != nil {
+		f.file.Sync()
 	}
 	return nil
 }
 
-func (e *FileServer) clunk(fid protocol.FID) (*File, error) {
+func (e *FileServer) clunk(fid protocol.FID) (*file, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	f, ok := e.Files[fid]
+	f, ok := e.files[fid]
 	if !ok {
 		return nil, fmt.Errorf("does not exist")
 	}
-	delete(e.Files, fid)
+	delete(e.files, fid)
 	// What do we do if we can't close it?
 	// All I can think of is to log it.
-	if f.File != nil {
-		if err := f.File.Close(); err != nil {
+	if f.file != nil {
+		if err := f.file.Close(); err != nil {
 			log.Printf("Close of %v failed: %v", f.fullName, err)
 		}
 	}
@@ -376,7 +374,7 @@ func (e *FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count
 	if err != nil {
 		return nil, err
 	}
-	if f.File == nil {
+	if f.file == nil {
 		return nil, fmt.Errorf("FID not open")
 	}
 	if f.QID.Type&protocol.QTDIR != 0 {
@@ -402,7 +400,7 @@ func (e *FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count
 				return b.Bytes()[:pos], nil
 			}
 			pos += b.Len()
-			st, err := f.File.Readdir(1)
+			st, err := f.file.Readdir(1)
 			if err == io.EOF {
 				return b.Bytes(), nil
 			}
@@ -425,7 +423,7 @@ func (e *FileServer) Rread(fid protocol.FID, o protocol.Offset, c protocol.Count
 	// N.B. even if they ask for 0 bytes on some file systems it is important to pass
 	// through a zero byte read (not Unix, of course).
 	b := make([]byte, c)
-	n, err := f.File.ReadAt(b, int64(o))
+	n, err := f.file.ReadAt(b, int64(o))
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
@@ -437,7 +435,7 @@ func (e *FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (prot
 	if err != nil {
 		return -1, err
 	}
-	if f.File == nil {
+	if f.file == nil {
 		return -1, fmt.Errorf("FID not open")
 	}
 
@@ -445,7 +443,7 @@ func (e *FileServer) Rwrite(fid protocol.FID, o protocol.Offset, b []byte) (prot
 	// through a zero byte write (not Unix, of course). Also, let the underlying file system
 	// manage the error if the open mode was wrong. No need to duplicate the logic.
 
-	n, err := f.File.WriteAt(b, int64(o))
+	n, err := f.file.WriteAt(b, int64(o))
 	return protocol.Count(n), err
 }
 
@@ -453,8 +451,7 @@ type ServerOpt func(*protocol.Server) error
 
 func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
 	f := &FileServer{}
-	f.Files = make(map[protocol.FID]*File)
-	f.mu = &sync.Mutex{}
+	f.files = make(map[protocol.FID]*file)
 	f.rootPath = *root // for now.
 	// any opts for the ufs layer can be added here too ...
 	var d protocol.NineServer = f
