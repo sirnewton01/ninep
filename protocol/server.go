@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -29,6 +30,11 @@ type Server struct {
 
 	// Trace function for logging
 	Trace Tracer
+
+	// mu guards below
+	mu sync.Mutex
+
+	listeners map[net.Listener]struct{}
 }
 
 type conn struct {
@@ -70,6 +76,34 @@ func (s *Server) newConn(rwc net.Conn) *conn {
 	return c
 }
 
+// trackListener from http.Server
+func (s *Server) trackListener(ln net.Listener, add bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.listeners == nil {
+		s.listeners = make(map[net.Listener]struct{})
+	}
+
+	if add {
+		s.listeners[ln] = struct{}{}
+	} else {
+		delete(s.listeners, ln)
+	}
+}
+
+// closeListenersLocked from http.Server
+func (s *Server) closeListenersLocked() error {
+	var err error
+	for ln := range s.listeners {
+		if cerr := ln.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+		delete(s.listeners, ln)
+	}
+	return err
+}
+
 // ListenAndServe starts a new Listener on e.Addr and then calls serve.
 func (s *Server) ListenAndServe() error {
 	addr := s.Addr
@@ -91,6 +125,9 @@ func (s *Server) Serve(ln net.Listener) error {
 	defer ln.Close()
 
 	var tempDelay time.Duration // how long to sleep on accept failure
+
+	s.trackListener(ln, true)
+	defer s.trackListener(ln, false)
 
 	// from http.Server.Serve
 	for {
@@ -126,6 +163,15 @@ func (s *Server) Accept(conn net.Conn) error {
 
 	go c.serve()
 	return nil
+}
+
+// Shutdown closes all active listeners. It does not close all active
+// connections but probably should.
+func (s *Server) Shutdown() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.closeListenersLocked()
 }
 
 func (s *Server) String() string {
