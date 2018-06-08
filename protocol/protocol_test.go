@@ -392,12 +392,6 @@ func TestTMessages(t *testing.T) {
 		t.Fatalf("Quit early")
 	}
 
-	t.Logf("Server is %v", s.String())
-	if _, err = c.CallTattach(0, 0, "", ""); err == nil {
-		t.Fatalf("CallTattach: want err, got nil")
-	}
-	t.Logf("CallTattach: wanted an error and got %v", err)
-
 	m, v, err := c.CallTversion(8000, "9p3000")
 	if err == nil {
 		t.Fatalf("CallTversion: want err, got nil")
