@@ -126,26 +126,21 @@ func (e *FileServer) Rwalk(fid protocol.FID, newfid protocol.FID, paths []string
 		p = path.Join(p, paths[i])
 		st, err := os.Lstat(p)
 		if err != nil {
-			// From the RFC: If the first element cannot
-			// be walked for any reason, Rerror is
-			// returned. Otherwise, the walk will return an
-			// Rwalk message containing nwqid qids
-			// corresponding, in order, to the files that
-			// are visited by the nwqid successful
-			// elementwise walks; nwqid is therefore either
-			// nwname or the index of the first elementwise
-			// walk that failed. The value of nwqid cannot
-			// be zero unless nwname is zero. Also, nwqid
-			// will always be less than or equal to
-			// nwname. Only if it is equal, however, will
-			// newfid be affected, in which case newfid
-			// will represent the file reached by the final
-			// elementwise walk requested in the message.
+			// From the RFC: If the first element cannot be walked for any
+			// reason, Rerror is returned. Otherwise, the walk will return an
+			// Rwalk message containing nwqid qids corresponding, in order, to
+			// the files that are visited by the nwqid successful elementwise
+			// walks; nwqid is therefore either nwname or the index of the
+			// first elementwise walk that failed. The value of nwqid cannot be
+			// zero unless nwname is zero. Also, nwqid will always be less than
+			// or equal to nwname. Only if it is equal, however, will newfid be
+			// affected, in which case newfid will represent the file reached
+			// by the final elementwise walk requested in the message.
 			//
-			// to sum up: if any walks have succeeded, you
-			// return the QIDS for one more than the last successful walk
+			// to sum up: if any walks have succeeded, you return the QIDS for
+			// one more than the last successful walk
 			if i == 0 {
-				return nil, fmt.Errorf("does not exist")
+				return nil, fmt.Errorf("file does not exist")
 			}
 			// we only get here if i is > 0 and less than nwname,
 			// so the i should be safe.
