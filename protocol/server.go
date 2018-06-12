@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -209,7 +208,7 @@ func (c *conn) serve() {
 	for !c.dead {
 		l := make([]byte, 7)
 		if n, err := c.rwc.Read(l); err != nil || n < 7 {
-			log.Printf("readNetPackets: short read: %v", err)
+			c.logf("readNetPackets: short read: %v", err)
 			c.dead = true
 			return
 		}
@@ -218,7 +217,7 @@ func (c *conn) serve() {
 		b := bytes.NewBuffer(l[5:])
 		r := io.LimitReader(c.rwc, sz-7)
 		if _, err := io.Copy(b, r); err != nil {
-			log.Printf("readNetPackets: short read: %v", err)
+			c.logf("readNetPackets: short read: %v", err)
 			c.dead = true
 			return
 		}
@@ -226,12 +225,12 @@ func (c *conn) serve() {
 		//panic(fmt.Sprintf("packet is %v", b.Bytes()[:]))
 		//panic(fmt.Sprintf("s is %v", s))
 		if err := c.server.D(c.server, b, t); err != nil {
-			log.Printf("%v: %v", RPCNames[MType(l[4])], err)
+			c.logf("%v: %v", RPCNames[MType(l[4])], err)
 		}
 		c.logf("readNetPackets: Write %v back", b)
 		amt, err := c.rwc.Write(b.Bytes())
 		if err != nil {
-			log.Printf("readNetPackets: write error: %v", err)
+			c.logf("readNetPackets: write error: %v", err)
 			c.dead = true
 			return
 		}
