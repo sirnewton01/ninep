@@ -41,7 +41,6 @@ type FileServer struct {
 }
 
 var (
-	debug = flag.Int("debug", 0, "print debug messages")
 	root  = flag.String("root", "/", "Set the root for all attaches")
 )
 
@@ -450,8 +449,8 @@ func NewUFS(opts ...protocol.ServerOpt) (*protocol.Server, error) {
 	f.rootPath = *root // for now.
 	// any opts for the ufs layer can be added here too ...
 	var d protocol.NineServer = f
-	if *debug != 0 {
-		d = &debugFileServer{f}
+	if *protocol.Debug {
+		d = &protocol.DebugServer{f}
 	}
 	s, err := protocol.NewServer(d, opts...)
 	if err != nil {
